@@ -7,101 +7,104 @@ l'année d'exploitation **avril 2027 → mars 2028**, pilotée par deux listes d
 
 | Cellule | Rôle |
 |---|---|
-| `C4` | **Filtre Mois** (avril 2027 → mars 2028) — pilote la grille *et* le récapitulatif |
+| `C4` | **Filtre Mois** (avril 2027 → mars 2028) — pilote la grille, le récapitulatif et le programme appliqué |
 | `C5` | **Filtre Route** (12 routes) — pilote uniquement la grille |
-| `C45:I80` | **Semaines types** : pour chaque route, **3 lignes** (vol 1 / vol 2 / vol 3) × 7 jours, chaque cellule portant le **type avion** opéré (vide = pas de vol) |
-| `B87:F126` | **Vols additionnels** : vols datés qui s'ajoutent à la semaine type |
+| `B46:J125` | **Programmes hebdomadaires** : la saisie principale, mois par mois |
+| `B133:F172` | **Vols additionnels** : vols datés qui s'ajoutent au programme du mois |
 
-Tout le reste est calculé par formule : changer un filtre, une semaine type ou un vol additionnel
-recalcule immédiatement la grille, les occurrences et les totaux, pour les 12 mois.
+## La saisie : un programme hebdomadaire par route **et par mois**
 
-## Plusieurs types avion par route, y compris le même jour
+La fréquence n'est plus figée pour l'année : elle se saisit **mois par mois**, dans une table où
+**une ligne = une route + un mois + le type avion opéré chaque jour J1→J7** (cellule vide = pas de
+vol ce jour-là).
 
-Chaque route occupe **trois lignes** dans la zone des semaines types : les **vols 1, 2 et 3** de la
-journée. Pour chaque jour J1→J7, on choisit le type avion opéré (liste déroulante 77W / 778 / A320,
-cellule vide = pas de vol).
+| Route | Mois du programme | J1 | J2 | J3 | J4 | J5 | J6 | J7 | Rot./sem. | Statut |
+|---|---|---|---|---|---|---|---|---|---|---|
+| NOSRUN | TOUS | A320 | | | A320 | | A320 | | 3 | |
+| NOSRUN | juillet 2027 | A320 | | A320 | A320 | | A320 | | 4 | APPLIQUE |
+| NOSRUN | decembre 2027 | A320 | A320 | | A320 | | A320 | A320 | 5 | |
 
-- une seule ligne renseignée = 1 rotation ce jour-là ;
-- deux ou trois lignes renseignées = **2 voire 3 rotations le même jour**, avec le même type ou des
-  **types différents** — par exemple `CDGRUN` le lundi : 77W + 778 + A320, affiché `77W/778/A320`
-  dans la grille ;
-- les lignes se remplissent dans n'importe quel ordre : si seuls les vols 2 et 3 sont renseignés,
-  la cellule affiche `778/A320` sans séparateur superflu ;
-- les types se mélangent aussi d'un jour à l'autre : `DZARUN` opère en A320 du lundi au vendredi
-  avec un 778 supplémentaire le mercredi, résumé en `778(1), A320(5)`.
-
-Les colonnes **Total 77W / Total 778 / Total A320** ventilent les rotations du mois par type
-(semaine type + vols additionnels), et `Rotations/semaine` compte les **vols**, pas les jours.
-
-Pour aller au-delà de 3 vols par jour, régénérer le fichier avec une autre valeur de `NB_SLOTS`
-dans `tools/build_programme_vols.py` : toute la mise en page et les formules suivent.
+- **Changer la fréquence d'un mois** = ajouter une ligne à ce mois. Elle **remplace** le programme
+  par défaut de la route pour ce mois-là.
+- **`TOUS`** est un mois spécial : programme par défaut, appliqué **uniquement** aux mois qui n'ont
+  aucune ligne propre pour cette route. Il évite de retaper 12 fois un programme identique ; si un
+  mois doit être différent, on lui écrit sa ligne. Rien n'oblige à l'utiliser : on peut saisir les
+  12 mois explicitement.
+- **Plusieurs vols le même jour** = plusieurs lignes pour le même couple route/mois, avec le même
+  type avion ou des types différents (ex. `CDGRUN` en août : une ligne 77W 7/7 + une ligne 778 7/7
+  → 14 rotations par semaine, affichées `77W/778` dans la grille). Aucune limite de vols par jour.
+- La colonne **Statut** passe en **vert `APPLIQUE`** sur les lignes réellement utilisées par le mois
+  filtré, et grise les autres : on voit immédiatement ce qui pilote l'affichage.
+- L'en-tête de la table porte les **flèches de filtre Excel** : filtrer sur un mois ou une route
+  pour ne saisir que la tranche concernée. Copier/coller une ligne puis changer le mois est le
+  chemin le plus rapide pour créer le programme d'un nouveau mois.
 
 ## Vols additionnels
 
-Une ligne = un vol supplémentaire daté (charter, renfort saisonnier, fret…), avec sa route, son
-type avion, un nombre de rotations et un commentaire libre. Il peut tomber sur un jour déjà opéré
-ou sur un jour hors semaine type, et il est compté dans le mois auquel appartient sa date.
+Une ligne = un vol supplémentaire daté (charter, renfort ponctuel, fret…), avec sa route, son type
+avion, un nombre de rotations et un commentaire. Il s'ajoute au programme du mois, sur n'importe
+quel jour. Pour une modification qui vaut sur tout un mois, écrire plutôt une ligne de programme.
 
 Lecture d'une cellule de la grille :
 
 | Affichage | Signification |
 |---|---|
-| `778` | vol de la semaine type |
+| `778` | un vol du programme hebdomadaire |
 | `77W/778` | deux vols le même jour, deux types différents |
 | `77W/778/A320` | trois vols le même jour |
-| `778 (+A320)` | vol de la semaine type + un vol additionnel en A320 |
-| `(+A320)` | vol additionnel seul, sur un jour hors semaine type |
-| `778 (+2x778)` | semaine type + un vol additionnel de 2 rotations |
-| `77W (+2 vols)` | semaine type + plusieurs vols additionnels le même jour |
+| `2xA320` | deux vols du même type le même jour |
+| `778 (+A320)` | programme + un vol additionnel |
+| `(+A320)` / `(+2x778)` | vol additionnel seul, sur un jour hors programme |
 
 Les cellules contenant un vol additionnel sont entourées d'une **bordure rouge**.
 
 ## Structure de la feuille
 
 - **Lignes 4-5** : les deux filtres. Colonnes N/O : repères calculés (1er/dernier jour du mois,
-  lundi de la semaine 1, type(s) avion, rotations/semaine et total du mois pour la route filtrée).
+  lundi de la semaine 1, **programme appliqué**, type(s) avion, rotations/semaine, total du mois
+  pour la route filtrée).
 - **Lignes 7-19** : grille **semaines (verticales) × jours J1→J7 (horizontaux)**, 6 blocs de
-  semaines. Chaque semaine occupe deux lignes : le **type avion opéré** (coloré selon la route) et,
-  en sous-info, les **dates réelles** du calendrier civil. Jours hors mois et jours sans opération
-  restent vides.
-- **Ligne 20** : nombre d'occurrences de chaque jour de semaine dans le mois (semaines partielles
-  incluses) — c'est la base du calcul des totaux.
-- **Lignes 23-37** : **récapitulatif mensuel toutes routes** — Route, Type(s) avion, Semaine type,
-  Rotations/semaine, Nb de semaines/occurrences, Total rotations du mois, dont semaine type, dont
-  vols additionnels, Total 77W, Total 778, Total A320 — plus la ligne de total général.
-- **Lignes 41-80** : semaines types par route (3 lignes par route) + table des mois + liste des
-  types avion. Le bloc `N10:U14` affiche la semaine type de la route filtrée (calcul automatique
-  qui alimente la grille).
-- **Lignes 83-126** : table des vols additionnels (40 lignes de saisie, extensible en recopiant les
-  formules de la colonne J).
+  semaines. Chaque semaine occupe deux lignes : les **vols du jour** (colorés selon la route) et,
+  en sous-info, les **dates réelles**. Jours hors mois et jours sans vol restent vides.
+- **Ligne 20** : occurrences de chaque jour de semaine dans le mois (semaines partielles incluses).
+- **Lignes 23-37** : **récapitulatif mensuel toutes routes** — Route, Type(s) avion, Semaine type du
+  mois, Rotations/semaine, Nb de semaines/occurrences, Total rotations du mois, **Programme
+  appliqué**, dont programme hebdo, dont vols additionnels, Total 77W / 778 / A320 — plus le total
+  général.
+- **Lignes 41-125** : table des programmes hebdomadaires (80 lignes de saisie).
+- **Lignes 128-172** : table des vols additionnels (40 lignes de saisie).
+- **Colonnes N→U** : blocs de calcul automatique (programme de la route filtrée, nombre de vols par
+  route et par jour) ; **colonnes W→AA** : listes de référence. Hors zone d'impression.
 
 ## Règles de calcul
 
+- Programme retenu pour une route = les lignes du **mois filtré** s'il en existe, sinon les lignes
+  **`TOUS`** (colonne `Programme appliqué` du récapitulatif).
 - Semaine 1 = semaine calendaire contenant le 1er du mois ; seules les dates réellement comprises
-  dans le mois sont affichées, donc comptées (semaines partielles de début/fin de mois incluses).
-- Pour chaque jour opéré de la semaine type, le nombre d'occurrences du jour dans le mois est
-  compté à partir des dates réelles de la grille, **les vols 1, 2 et 3 étant comptés séparément**.
-- `Total rotations du mois` = **semaine type** (`SUMPRODUCT` occurrences × jours opérés) **+ vols
-  additionnels** du mois (`SUMIFS` bornée par le 1er et le dernier jour du mois).
+  dans le mois sont affichées, donc comptées (semaines partielles incluses).
+- Pour chaque jour opéré, le nombre d'occurrences de ce jour dans le mois est compté à partir des
+  dates réelles de la grille, **chaque vol de la journée compté séparément**.
+- `Total rotations du mois` = **programme hebdomadaire + vols additionnels** datés du mois.
 - Code couleur : une couleur fixe par route, en mise en forme conditionnelle, appliquée à la
-  grille, au récapitulatif et aux semaines types.
+  grille, au récapitulatif et à la table des programmes.
 
-## Exemple validé
+## Exemples validés
 
-`NOSRUN` — semaine type 3/7 en A320 sur J1, J4, J6 :
+| Mois filtré | Route | Programme appliqué | Rot./sem. | Total du mois |
+|---|---|---|---|---|
+| avril 2027 | NOSRUN | TOUS (3/7 A320 J1/J4/J6) | 3 | 13 + 2 vols add. = **15** |
+| juillet 2027 | NOSRUN | juillet 2027 (4/7) | 4 | **18** |
+| decembre 2027 | NOSRUN | decembre 2027 (5/7) | 5 | **21** |
+| aout 2027 | CDGRUN | aout 2027 (77W 7/7 + 778 7/7) | 14 | **62** (31 en 77W, 31 en 778) |
 
-| Mois filtré | Semaines | Occurrences J1 / J4 / J6 | Semaine type | Vols add. | Total |
-|---|---|---|---|---|---|
-| avril 2027 | 5 (dont 2 partielles) | 4 / 5 / 4 | **13** | 2 (lignes d'exemple) | **15** |
-| mai 2027 | 6 (dont 2 partielles) | 5 / 4 / 5 | **14** | 0 | **14** |
+Total toutes routes : 203 rotations en avril 2027, 209 en juillet, 219 en août, 214 en décembre.
 
 ## Données livrées
 
-Les routes et les types avion sont ceux de la demande. Les semaines types et les 3 vols
-additionnels sont des **valeurs d'exemple à ajuster ou supprimer** — sauf `NOSRUN`, dont la semaine
-type reprend l'exemple fourni (3/7 en A320 sur J1/J4/J6). Les cellules de saisie sont en **bleu**.
-Les vols multiples livrés en exemple : `CDGRUN` (77W + 778 + A320 le lundi, 77W + 778 le
-vendredi), `DZARUN` (A320 + 778 le mercredi) et `RRGRUN` (3 × A320 le vendredi).
+Les routes et les types avion sont ceux de la demande. Les 17 lignes de programme `TOUS`, les
+4 lignes de programme mensuel et les 3 vols additionnels sont des **valeurs d'exemple à ajuster ou
+supprimer** — sauf le programme `TOUS` de `NOSRUN`, qui reprend l'exemple fourni (3/7 en A320 sur
+J1/J4/J6). Les cellules de saisie sont en **bleu**.
 
 ## Régénérer le fichier
 
