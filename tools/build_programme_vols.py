@@ -15,7 +15,7 @@ from openpyxl.comments import Comment
 
 OUT = "/home/user/Test-App/Programme_vols_mensuel_2027-2028.xlsx"
 F = "Arial"
-NB_SLOTS = 2            # nombre de vols possibles par jour dans la semaine type
+NB_SLOTS = 3            # nombre de vols possibles par jour dans la semaine type
 
 # ---------------------------------------------------------------- donnees de reference
 # Semaines types : valeurs d'EXEMPLE a ajuster dans la zone de parametres.
@@ -23,19 +23,19 @@ NB_SLOTS = 2            # nombre de vols possibles par jour dans la semaine type
 # NOSRUN reprend l'exemple fourni dans la demande : 3/7 en A320 sur J1, J4, J6.
 _ = ""
 ROUTES = [
-    # (route, couleur, police blanche ?, [vol 1 J1..J7], [vol 2 J1..J7])
-    ("CDGRUN", "9DC3E6", False, ["77W","77W","77W","77W","77W","77W","77W"], ["778",_,_,_,"778",_,_]),
-    ("CDGDZA", "2E75B6", True,  [_,"778",_,_,"778",_,"77W"],                 [_,_,_,_,_,_,_]),
-    ("BKKRUN", "FFE699", False, [_,_,"778",_,_,"778",_],                     [_,_,_,_,_,_,_]),
-    ("DZARUN", "F4B183", False, ["A320","A320","A320","A320","A320",_,_],    [_,_,"778",_,_,_,_]),
-    ("MRURUN", "C6E0B4", False, ["A320",_,"A320",_,"A320",_,"A320"],         [_,_,_,_,_,_,_]),
-    ("NOSRUN", "FFD966", False, ["A320",_,_,"A320",_,"A320",_],              [_,_,_,_,_,_,_]),
-    ("RUNTNR", "D9D2E9", False, [_,"A320",_,"A320",_,"A320",_],              [_,_,_,_,_,_,_]),
-    ("JNBRUN", "A9D08E", False, ["778",_,_,_,"778",_,_],                     [_,_,_,_,_,_,_]),
-    ("CPTRUN", "8FAADC", False, [_,_,_,"778",_,_,_],                         [_,_,_,_,_,_,_]),
-    ("DIERUN", "FFC7CE", False, [_,"A320",_,_,_,"A320",_],                   [_,_,_,_,_,_,_]),
-    ("RRGRUN", "B7DEE8", False, ["A320","A320","A320","A320","A320","A320",_], [_,_,_,_,"A320",_,_]),
-    ("TMMRUN", "D5A6BD", False, [_,_,"A320",_,_,_,"A320"],                   [_,_,_,_,_,_,_]),
+    # (route, couleur, police blanche ?, [vol 1 J1..J7], [vol 2 J1..J7], [vol 3 J1..J7])
+    ("CDGRUN", "9DC3E6", False, ["77W","77W","77W","77W","77W","77W","77W"], ["778",_,_,_,"778",_,_], ["A320",_,_,_,_,_,_]),
+    ("CDGDZA", "2E75B6", True,  [_,"778",_,_,"778",_,"77W"],                 [_]*7,                    [_]*7),
+    ("BKKRUN", "FFE699", False, [_,_,"778",_,_,"778",_],                     [_]*7,                    [_]*7),
+    ("DZARUN", "F4B183", False, ["A320","A320","A320","A320","A320",_,_],    [_,_,"778",_,_,_,_],      [_]*7),
+    ("MRURUN", "C6E0B4", False, ["A320",_,"A320",_,"A320",_,"A320"],         [_]*7,                    [_]*7),
+    ("NOSRUN", "FFD966", False, ["A320",_,_,"A320",_,"A320",_],              [_]*7,                    [_]*7),
+    ("RUNTNR", "D9D2E9", False, [_,"A320",_,"A320",_,"A320",_],              [_]*7,                    [_]*7),
+    ("JNBRUN", "A9D08E", False, ["778",_,_,_,"778",_,_],                     [_]*7,                    [_]*7),
+    ("CPTRUN", "8FAADC", False, [_,_,_,"778",_,_,_],                         [_]*7,                    [_]*7),
+    ("DIERUN", "FFC7CE", False, [_,"A320",_,_,_,"A320",_],                   [_]*7,                    [_]*7),
+    ("RRGRUN", "B7DEE8", False, ["A320","A320","A320","A320","A320","A320",_], [_,_,_,_,"A320",_,_],   [_,_,_,_,"A320",_,_]),
+    ("TMMRUN", "D5A6BD", False, [_,_,"A320",_,_,_,"A320"],                   [_]*7,                    [_]*7),
 ]
 TYPES = ["77W", "778", "A320"]
 MOIS = [("avril 2027",2027,4),("mai 2027",2027,5),("juin 2027",2027,6),("juillet 2027",2027,7),
@@ -110,9 +110,9 @@ cell("B1", "PROGRAMME DE VOLS MENSUEL - ANNEE D'EXPLOITATION AVRIL 2027 / MARS 2
 ws.row_dimensions[1].height = 30
 ws.merge_cells("B2:I2")
 cell("B2", "Feuille unique : les deux filtres ci-dessous (Mois et Route) pilotent la grille, le recapitulatif ne suit que le filtre "
-           "Mois. Chaque route a une semaine type de 2 vols possibles par jour, chacun avec son propre type avion (2 types "
-           "differents le meme jour sont donc possibles), a laquelle s'ajoutent les vols additionnels dates saisis en bas de "
-           "feuille. Tout est calcule par formule.",
+           "Mois. Chaque route a une semaine type de 3 vols possibles par jour, chacun avec son propre type avion (2 voire 3 "
+           "types differents le meme jour sont donc possibles), a laquelle s'ajoutent les vols additionnels dates saisis en "
+           "bas de feuille. Tout est calcule par formule.",
      size=9, italic=True, halign="left", wrap=True, color="404040")
 ws.row_dimensions[2].height = 26
 
@@ -190,8 +190,13 @@ for k in range(1, NB_WEEKS+1):
         cell(d, f'=IF(OR($O$6+{off}<$O$4,$O$6+{off}>$O$5),"",$O$6+{off})',
              size=8, italic=True, color="595959", fmt="DD/MM", border=box)
         # semaine type : les vols du jour, separes par "/"
-        s1, s2 = f"{hc}${ROW_HELP+2}", f"{hc}${ROW_HELP+3}"
-        st = f'{s1}&IF(AND({s1}<>"",{s2}<>""),"/","")&{s2}'
+        sref = [f"{hc}${ROW_HELP+2+s}" for s in range(NB_SLOTS)]
+        parts = [sref[0]]
+        for si in range(1, NB_SLOTS):
+            before = (f'{sref[0]}=""' if si == 1
+                      else "AND(" + ",".join(f'{x}=""' for x in sref[:si]) + ")")
+            parts.append(f'IF({sref[si]}="","",IF({before},"","/")&{sref[si]})')
+        st = "&".join(parts)
         # vols additionnels de la route a cette date
         nrot = f"SUMIFS({ADD_N},{ADD_R},$C$5,{ADD_D},{d})"
         nrows = f"COUNTIFS({ADD_R},$C$5,{ADD_D},{d})"
@@ -210,8 +215,8 @@ cell(f"B{ROW_NBW}", "Nb de semaines calendaires du mois", bold=True, size=9, hal
 nbw = "+".join(f'IF(COUNT({get_column_letter(GRID_C0)}{r}:{get_column_letter(GRID_C0+6)}{r})>0,1,0)' for r in date_rows)
 cell(f"C{ROW_NBW}", f"={nbw}", bold=True, size=10, fill="E7E6E6", border=box)
 ws.merge_cells(f"D{ROW_NBW}:I{ROW_NBW}")
-cell(f"D{ROW_NBW}", 'Lecture : "778" = 1 vol de la semaine type  |  "77W/778" = 2 vols le meme jour  |  "778 (+A320)" = semaine type '
-                    '+ vol additionnel (bordure rouge)  |  "(+A320)" = vol additionnel seul. Semaines partielles incluses.',
+cell(f"D{ROW_NBW}", 'Lecture : "778" = 1 vol de la semaine type  |  "77W/778/A320" = 2 ou 3 vols le meme jour  |  "778 (+A320)" = '
+                    'semaine type + vol additionnel (bordure rouge)  |  "(+A320)" = vol additionnel seul. Semaines partielles incluses.',
      size=8, italic=True, color="595959", halign="left")
 
 # ---------------------------------------------------------------- recapitulatif mensuel
@@ -237,10 +242,11 @@ for i in range(len(ROUTES)):
     span = f"$C${p}:$I${rows[-1]}"
     add_mois = f'SUMIFS({ADD_N},{ADD_R},$B{r},{ADD_D},">="&$O$4,{ADD_D},"<="&$O$5)'
     cell(f"B{r}", f"=$B${p}", bold=True, size=10, border=box)
-    cell(f"C{r}", f"=$K${p}", size=9, border=box)                       # types + nb de vols
+    cell(f"C{r}", f"=$K${p}", size=9, wrap=True, border=box)            # types + nb de vols
     jl = "&".join(f'IF(COUNTA($'+get_column_letter(3+j)+f'${p}:$'+get_column_letter(3+j)+f'${rows[-1]})>0,"J{j+1} ","")'
                   for j in range(7))
-    cell(f"D{r}", f'=IF(COUNTA({span})=0,"aucune operation",SUBSTITUTE(TRIM({jl})," ",", "))', size=9, border=box)
+    cell(f"D{r}", f'=IF(COUNTA({span})=0,"aucune operation",SUBSTITUTE(TRIM({jl})," ",", "))', size=9, wrap=True, border=box)
+    ws.row_dimensions[r].height = 24
     cell(f"E{r}", f"=$J${p}", size=10, fmt="0", border=box)              # rotations / semaine
     cell(f"F{r}", f"=$C${ROW_NBW}", size=10, fmt="0", border=box)
     cell(f"G{r}", f"=H{r}+I{r}", bold=True, size=11, fmt="0", border=box)
@@ -265,7 +271,7 @@ r = ROW_REC_TOT + 1
 ws.merge_cells(f"B{r}:L{r+1}")
 cell(f"B{r}", "Methode : pour chaque jour opere de la semaine type, le nombre d'occurrences de ce jour dans le mois est compte a "
               "partir des dates reelles de la grille (ligne \"Occurrences du jour dans le mois\", semaines partielles incluses), "
-              "vol 1 et vol 2 comptes separement. Total rotations du mois = semaine type + vols additionnels dates du mois. La "
+              "les vols 1, 2 et 3 etant comptes separement. Total rotations du mois = semaine type + vols additionnels dates du mois. La "
               "colonne \"Nb de semaines/occurrences\" indique le nombre de semaines calendaires couvertes par le mois ; les "
               "colonnes Total 77W / 778 / A320 ventilent le total du mois par type avion.",
      size=8, italic=True, color="595959", halign="left", wrap=True)
@@ -275,10 +281,10 @@ ws.merge_cells(f"B{ROW_PAR_TITLE}:L{ROW_PAR_TITLE}")
 cell(f"B{ROW_PAR_TITLE}", "1) SEMAINES TYPES PAR ROUTE (saisie unique, valable pour les 12 mois)",
      bold=True, size=11, color="FFFFFF", fill=BROWN, halign="left")
 ws.merge_cells(f"B{ROW_PAR_TITLE+1}:L{ROW_PAR_TITLE+2}")
-cell(f"B{ROW_PAR_TITLE+1}", "Cellules en BLEU = saisie utilisateur. Chaque route occupe 2 lignes : le VOL 1 et le VOL 2 de la journee. Pour "
+cell(f"B{ROW_PAR_TITLE+1}", "Cellules en BLEU = saisie utilisateur. Chaque route occupe 3 lignes : les VOLS 1, 2 et 3 de la journee. Pour "
                             "chaque jour J1-J7, choisir dans la liste deroulante le TYPE AVION opere (77W / 778 / A320), ou laisser vide s'il "
-                            "n'y a pas de vol. Renseigner les deux lignes pour un jour = 2 rotations ce jour-la, avec le meme type ou deux "
-                            "types differents (ex. CDGRUN le lundi : 77W + 778). Toute modification recalcule immediatement la grille et le "
+                            "n'y a pas de vol. Renseigner plusieurs lignes pour un jour = 2 voire 3 rotations ce jour-la, avec le meme type "
+                            "ou des types differents (ex. CDGRUN le lundi : 77W + 778 + A320). Toute modification recalcule la grille et le "
                             "recapitulatif, pour les 12 mois. Valeurs livrees = exemples a ajuster (NOSRUN = 3/7 en A320 sur J1/J4/J6, "
                             "conforme a l'exemple fourni).",
      size=8, italic=True, color=BROWN, halign="left", wrap=True)
@@ -303,10 +309,8 @@ for i, (route, colr, white, *slots) in enumerate(ROUTES):
         for j, t in enumerate(slots[s]):
             cell(f"{get_column_letter(3+j)}{r}", t if t else None, size=10, color=BLUE_IN, border=box)
     span = f"C{p}:I{last}"
-    for col, fml, sz in (("J", f"=COUNTA({span})", 10),
-                         ("K", None, 9),
-                         ("L", None, 9)):
-        if NB_SLOTS > 1:
+    if NB_SLOTS > 1:
+        for col in ("J", "K", "L"):
             ws.merge_cells(f"{col}{p}:{col}{last}")
     tl = "&".join(f'IF(COUNTIF({span},"{t}")>0,"{t}("&COUNTIF({span},"{t}")&") ","")' for t in TYPES)
     cell(f"J{p}", f"=COUNTA({span})", size=10, bold=True, fmt="0", border=box)
@@ -399,7 +403,6 @@ for route, colr, white, *slots in ROUTES:
                     fill=PatternFill("solid", fgColor=colr),
                     font=Font(name=F, size=10, bold=True, color=fc), stopIfTrue=True))
     # bloc parametres : colorer la ligne "vol 1" et les lignes "vol n" qui la suivent
-    prev = " ,".join("")
     conds = ",".join([f'$B{ROW_PAR0}="{route}"'] +
                      [f'$B{ROW_PAR0-s}="{route}"' for s in range(1, NB_SLOTS)])
     ws.conditional_formatting.add(
@@ -411,7 +414,7 @@ for route, colr, white, *slots in ROUTES:
 # ---------------------------------------------------------------- mise en page
 widths = {"A": 2, "B": 30, "J": 15, "K": 18, "L": 12, "M": 3, "N": 22, "O": 14, "P": 12}
 for j in range(7):
-    widths[get_column_letter(GRID_C0+j)] = 16
+    widths[get_column_letter(GRID_C0+j)] = 18
 for j in range(1, 7):
     widths.setdefault(get_column_letter(HELP_C0+j), 9)
 for col, w in widths.items():
