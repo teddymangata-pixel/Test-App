@@ -107,8 +107,23 @@ dont vols additionnels · Rotations 77W / 787 / A320 · plus le total général.
 
 ## Feuille « Analyse capacite »
 
-Hypothèses (seules cellules saisissables) : 77W **438** sièges, 787 **262**, A320 **174**, et
-`Legs comptés par rotation` = `1` (mettre `2` pour compter l'aller **et** le retour).
+### Filtre de cabine (`C5`)
+
+Une liste déroulante — **Toutes cabines · C - Club · W - Confort · Y - Loisir** — fait suivre
+**toutes** les valeurs en sièges de la feuille. Les titres des tableaux rappellent la cabine active.
+
+| Type avion | C — Club | W — Confort | Y — Loisir | Total |
+|---|---|---|---|---|
+| 77W | 14 | 40 | 384 | **438** |
+| 787 | 18 | — | 244 | **262** |
+| A320 | — | 12 | 162 | **174** |
+
+La colonne **Sièges retenus** est celle qu'utilisent tous les tableaux : le total du type avion sur
+« Toutes cabines », la capacité de la seule cabine choisie sinon. Les capacités par cabine sont
+modifiables (cellules bleues).
+
+Autre hypothèse : `Legs comptés par rotation` = `1` (mettre `2` pour compter l'aller **et** le
+retour).
 
 Contenu : synthèse annuelle par route · sièges offerts par mois et par route · rotations par mois et
 par route · rotations et sièges par type avion et par mois · trois blocs automatiques (départs du
@@ -141,6 +156,9 @@ programme, queues de mois, rotations) et le calendrier des occurrences.
 Réseau : **196,5 rotations en avril 2027** (33,5 en 77W, 43 en 787, 120 en A320) → **46 819
 sièges** ; sur l'année **2 428,5 rotations** et **580 739 sièges**. Totaux recoupés entre les
 feuilles.
+
+Par cabine, sur l'année : **C 15 655** · **W 34 292** · **Y 530 792** sièges — dont la somme
+redonne bien les 580 739 sièges toutes cabines.
 
 Écarts testés : un vol `31/03/2027 · CDGRUN · 787 · +1 · Retour J+1` porte CDGRUN à **46,5**
 rotations en avril (arrivées 45 → 46) ; un retrait `19/04/2027 · NOSRUN · A320 · −1` ramène NOSRUN

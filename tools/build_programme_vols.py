@@ -31,7 +31,12 @@ ROUTES = [
     ("DIERUN", "FFC7CE", False), ("RRGRUN", "B7DEE8", False), ("TMMRUN", "D5A6BD", False),
 ]
 TYPES = ["77W", "787", "A320"]
-SIEGES = {"77W": 438, "787": 262, "A320": 174}
+CABINES = [("C", "Club"), ("W", "Confort"), ("Y", "Loisir")]
+SIEGES_CAB = {"77W":  {"C": 14, "W": 40, "Y": 384},     # 438
+              "787":  {"C": 18, "W":  0, "Y": 244},     # 262
+              "A320": {"C":  0, "W": 12, "Y": 162}}     # 174
+SIEGES = {t: sum(c.values()) for t, c in SIEGES_CAB.items()}
+CAB_FILTRE = ["Toutes cabines"] + [f"{k} - {lab}" for k, lab in CABINES]
 SIEGES_NOTE = {"77W": "Valeur fournie (77W = 777-300ER).",
                "787": "Valeur fournie (787 Dreamliner).",
                "A320": "Valeur fournie (A320)."}
@@ -628,15 +633,16 @@ va.sheet_properties.pageSetUpPr.fitToPage = True
 va.print_area = f"B1:G{ROW_ADD_END}"
 
 # ================================================================= FEUILLE 4 : ANALYSE CAPACITE
-R_HYP, R_SYN, R_SIE, R_ROT, R_TYP, R_CAL = 5, 12, 28, 45, 62, 78
-R_PDEP, R_TAIL, R_ROTD = 93, 132, 171          # blocs auto : departs programme, queues de mois, rotations
+R_CAB, R_HYP, R_SYN, R_SIE, R_ROT, R_TYP, R_CAL = 5, 6, 15, 31, 48, 65, 81
+R_PDEP, R_TAIL, R_ROTD = 96, 135, 174          # blocs auto : departs programme, queues de mois, rotations
 mcol = lambda m: gl(3+m)
 rcol = lambda i: gl(3+i)
 cal_row = lambda m: R_CAL + 1 + m
 occ_row = lambda m: f"$C${cal_row(m)}:$I${cal_row(m)}"
 drow = lambda base, i, ti: base + 1 + NB_T*i + ti
-seat = {t: f"$C${R_HYP+1+ti}" for ti, t in enumerate(TYPES)}
-LEGS = f"$C${R_HYP+4}"
+seat = {t: f"$G${R_HYP+1+ti}" for ti, t in enumerate(TYPES)}   # sieges retenus selon le filtre cabine
+LEGS = f"$C${R_HYP+5}"
+CABF = f"$C${R_CAB}"
 
 an.merge_cells("B1:J1")
 A("B1", "ANALYSE DE CAPACITE - SIEGES OFFERTS (avril 2027 / mars 2028)",
@@ -645,28 +651,50 @@ an.row_dimensions[1].height = 30
 an.merge_cells("B2:J2")
 A("B2", "Interpretation automatique des feuilles \"Saisie programme\" et \"Vols additionnels\", croisee avec les capacites "
         "ci-dessous. Une rotation = un aller-retour : elle compte 0,5 le mois de son depart et 0,5 le mois de son retour, donc "
-        "les rotations d'un mois peuvent etre fractionnaires. Aucune saisie ici, hormis les hypotheses.",
+        "les rotations d'un mois peuvent etre fractionnaires. Aucune saisie ici, hormis les hypotheses de capacite et le filtre de cabine, qui font suivre tous les sieges de la feuille.",
   size=9, italic=True, halign="left", wrap=True, color="404040")
 an.row_dimensions[2].height = 26
-an.merge_cells(f"B{R_HYP-1}:F{R_HYP-1}")
-A(f"B{R_HYP-1}", "HYPOTHESES DE CAPACITE (sieges par rotation)", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
-for i, h in enumerate(["Type avion", "Sieges par rotation", "Remarque"]):
-    A(f"{gl(2+i)}{R_HYP}", h, bold=True, size=9, color="FFFFFF", fill="2F5597", border=box)
+an.merge_cells(f"B{R_CAB-1}:H{R_CAB-1}")
+A(f"B{R_CAB-1}", "HYPOTHESES DE CAPACITE (sieges par rotation, par cabine)",
+  bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
+A(f"B{R_CAB}", "CABINE ANALYSEE :", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
+an.merge_cells(f"C{R_CAB}:D{R_CAB}")
+A(f"C{R_CAB}", CAB_FILTRE[0], bold=True, size=12, color=BLUE_IN, fill="FFF2CC",
+  border=Border(left=med, right=med, top=med, bottom=med))
+an.merge_cells(f"E{R_CAB}:H{R_CAB}")
+A(f"E{R_CAB}", "<-- liste deroulante : toutes les valeurs en sieges de cette feuille suivent la cabine choisie "
+               "(C = Club, W = Confort, Y = Loisir).", size=9, italic=True, halign="left", color="808080")
+for i, h in enumerate(["Type avion", "C - Club", "W - Confort", "Y - Loisir", "Total cabine",
+                       "Sieges retenus (filtre)", "Remarque"]):
+    A(f"{gl(2+i)}{R_HYP}", h, bold=True, size=9, color="FFFFFF", fill="2F5597", wrap=True, border=box)
+an.row_dimensions[R_HYP].height = 30
 for ti, t in enumerate(TYPES):
     r = R_HYP + 1 + ti
     A(f"B{r}", t, bold=True, size=10, border=box)
-    A(f"C{r}", SIEGES[t], bold=True, size=10, color=BLUE_IN, fill="FFF2CC", fmt="#,##0", border=box)
-    A(f"D{r}", SIEGES_NOTE[t], size=8, italic=True, color="595959", halign="left", border=box)
-    an.merge_cells(f"D{r}:F{r}")
-rl = R_HYP + 4
+    for ci, (code, lab) in enumerate(CABINES):
+        A(f"{gl(3+ci)}{r}", SIEGES_CAB[t][code], bold=True, size=10, color=BLUE_IN, fill="FFF2CC", fmt="#,##0", border=box)
+    A(f"F{r}", f"=SUM(C{r}:E{r})", bold=True, size=10, fmt="#,##0", border=box)
+    A(f"G{r}", f'=IF({CABF}="{CAB_FILTRE[0]}",$F{r},IF(LEFT({CABF},1)="C",$C{r},IF(LEFT({CABF},1)="W",$D{r},$E{r})))',
+      bold=True, size=11, fill="E2EFDA", fmt="#,##0", border=box)
+    A(f"H{r}", SIEGES_NOTE[t], size=8, italic=True, color="595959", halign="left", border=box)
+rl = R_HYP + 5
 A(f"B{rl}", "Legs comptes par rotation", bold=True, size=10, border=box)
 A(f"C{rl}", 1, bold=True, size=10, color=BLUE_IN, fill="FFF2CC", fmt="0", border=box)
-an.merge_cells(f"D{rl}:F{rl}")
+an.merge_cells(f"D{rl}:H{rl}")
 A(f"D{rl}", "1 = l'aller-retour compte pour un vol (sieges d'un sens) ; mettre 2 pour compter l'aller ET le retour.",
   size=8, italic=True, color="595959", halign="left", border=box)
+an.merge_cells(f"B{rl+1}:H{rl+1}")
+A(f"B{rl+1}", "Les cellules bleues sont modifiables. La colonne \"Sieges retenus\" est celle qu'utilisent tous les tableaux "
+              "ci-dessous : elle vaut le total du type avion quand le filtre est sur \"Toutes cabines\", et la capacite de la "
+              "seule cabine choisie sinon.",
+  size=8, italic=True, color="595959", halign="left", wrap=True)
+add_dv(an, DataValidation(type="list", formula1='"' + ",".join(CAB_FILTRE) + '"', allow_blank=False,
+                          errorTitle="Cabine inconnue", error="Choisir : toutes cabines, C, W ou Y."),
+       f"C{R_CAB}")
 
-an.merge_cells(f"B{R_SYN-1}:F{R_SYN-1}")
-A(f"B{R_SYN-1}", "SYNTHESE ANNUELLE PAR ROUTE", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
+an.merge_cells(f"B{R_SYN-1}:H{R_SYN-1}")
+A(f"B{R_SYN-1}", f'="SYNTHESE ANNUELLE PAR ROUTE"&IF({CABF}="{CAB_FILTRE[0]}",""," - CABINE "&{CABF})',
+  bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
 for i, h in enumerate(["Route", "Rotations sur l'annee", "Sieges offerts sur l'annee", "Sieges / rotation",
                        "Part du reseau (sieges)"]):
     A(f"{gl(2+i)}{R_SYN}", h, bold=True, size=9, color="FFFFFF", fill="2F5597", wrap=True, border=box)
@@ -689,7 +717,8 @@ A(f"F{rt2}", f"=IFERROR(D{rt2}/$D${rt2},0)", bold=True, size=10, color="FFFFFF",
 for base, titre, fmt in ((R_SIE, "SIEGES OFFERTS PAR MOIS ET PAR ROUTE", "#,##0"),
                          (R_ROT, "ROTATIONS PAR MOIS ET PAR ROUTE", ROT_FMT)):
     an.merge_cells(f"B{base-1}:O{base-1}")
-    A(f"B{base-1}", titre, bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
+    A(f"B{base-1}", f'="{titre}"&IF({CABF}="{CAB_FILTRE[0]}",""," - CABINE "&{CABF})',
+      bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
     A(f"B{base}", "Mois", bold=True, size=9, color="FFFFFF", fill="2F5597", border=box)
     for i, (route, colr, white) in enumerate(ROUTES):
         A(f"{rcol(i)}{base}", route, bold=True, size=9, fill=colr, color="FFFFFF" if white else "000000", border=box)
@@ -713,7 +742,8 @@ for base, titre, fmt in ((R_SIE, "SIEGES OFFERTS PAR MOIS ET PAR ROUTE", "#,##0"
           color="FFFFFF", fill=NAVY, fmt=fmt, border=box)
 
 an.merge_cells(f"B{R_TYP-1}:K{R_TYP-1}")
-A(f"B{R_TYP-1}", "ROTATIONS ET SIEGES PAR TYPE AVION ET PAR MOIS", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
+A(f"B{R_TYP-1}", f'="ROTATIONS ET SIEGES PAR TYPE AVION ET PAR MOIS"&IF({CABF}="{CAB_FILTRE[0]}",""," - CABINE "&{CABF})',
+  bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
 hdr = ["Mois"] + [f"Rotations {t}" for t in TYPES] + ["Total rotations"] + [f"Sieges {t}" for t in TYPES] + \
       ["Total sieges", "Sieges / rotation"]
 for i, h in enumerate(hdr):
@@ -791,7 +821,7 @@ for base, titre in ((R_PDEP, "AUTO 1/3 : departs du programme (hors vols additio
                              f'{ADD_RD},">="&$J${cal},{ADD_RD},"<="&$K${cal})')
                     f = (f'={d}{drow(R_PDEP,i,ti)}+({dep_a}+{arr_a}-{d}{drow(R_TAIL,i,ti)}+{tail_prev})/2')
                 A(f"{d}{r}", f, size=8, fmt="0" if base != R_ROTD else ROT_FMT, border=box)
-for col, w in {"A": 2, "B": 26, "O": 14, "P": 10}.items():
+for col, w in {"A": 2, "B": 26, "O": 14, "P": 10, "Q": 3, "R": 60}.items():
     an.column_dimensions[col].width = w
 for i in range(12):
     an.column_dimensions[gl(3+i)].width = 13
