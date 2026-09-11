@@ -6,7 +6,7 @@
 | Feuille | Rôle |
 |---|---|
 | **Programme de vols** | saisie et visualisation du programme (12 tableaux mensuels, grille, récapitulatif). Aucune notion de sièges. |
-| **Analyse capacite** | interprétation automatique du programme en **sièges offerts**. Seule saisie : les capacités. |
+| **Analyse capacite** | interprétation automatique du programme en **sièges offerts**. Seule saisie : les hypothèses. |
 
 Types avion : **77W**, **787**, **A320**.
 
@@ -20,29 +20,41 @@ Types avion : **77W**, **787**, **A320**.
 | lignes 48 → 514 | **12 tableaux de saisie**, un par mois |
 | `B522:F561` | **Vols additionnels** : vols datés qui s'ajoutent au programme du mois |
 
-### Saisie : une case cochée = une rotation (un aller-retour)
+### Saisie : un caractère par rotation, le caractère dit quand elle rentre
 
-Dans chaque tableau mensuel, une route occupe **3 lignes nommées 77W, 787 et A320**. On **coche le
-jour de l'aller** de chaque rotation.
+Chaque route occupe **3 lignes = les 3 types avion**. Dans la case d'un jour, on saisit **un
+caractère par rotation** (aller-retour) qui **part** ce jour-là ; ce caractère indique **quand cette
+rotation rentre** :
 
-| Route | Type | J1 | J2 | J3 | J4 | J5 | J6 | J7 | Retour J+n | Rot./sem. par type | Rot./sem. route |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| **CDGRUN** | 77W | X | X | X | X | X | X | X | 1 | 7 | 10 |
-| | 787 | X | | | | X | | | 1 | 2 | |
-| | A320 | X | | | | | | | 1 | 1 | |
+| Caractère | Retour |
+|---|---|
+| `0` (ou `x`) | le jour même |
+| `1` | à J+1 |
+| `2` | à J+2 |
+| `3` | à J+3 |
 
-- **Cocher** : taper `x` — la case devient **verte cochée `X`**. **Décocher** : `Suppr`.
-  Sélection + `x` + `Ctrl+Entrée` coche une plage entière ; le copier/coller fonctionne aussi.
-- **Aller-retour non simultané** → colonne **`Retour J+n`** : `0` = A/R dans la journée, `1` = retour
-  le lendemain, `2` = le surlendemain, `3` = J+3. Le décalage se règle **par route et par type**,
-  et il est propre à chaque mois.
-- La **rotation reste comptée une seule fois**, le jour de l'aller, quel que soit le décalage : pas
-  de double comptage dans le récapitulatif ni dans l'analyse de capacité.
-- Cocher **2 ou 3 lignes le même jour** = 2 ou 3 rotations ce jour-là avec des types différents.
-  Une case = 1 rotation ; pour deux rotations du **même type** le même jour, utiliser la table des
-  vols additionnels (colonne `Nb de rotations`).
-- Les 12 tableaux sont indépendants : la fréquence peut être différente chaque mois. Celui du mois
-  filtré a son titre **en vert**.
+| Code saisi | Signification |
+|---|---|
+| `0` | 1 rotation, aller-retour dans la journée |
+| `1` | 1 rotation qui rentre le lendemain |
+| `01` | **2 rotations le même jour : la première rentre le jour même, la seconde le lendemain** |
+| `00` | 2 rotations rentrant toutes deux le jour même |
+| `11` | 2 rotations rentrant toutes deux à J+1 |
+| *(vide)* | aucun vol |
+
+Une cellule contenant une rotation devient **verte** ; une cellule à **plusieurs rotations** devient
+**orange** pour se repérer d'un coup d'œil. Maximum 4 rotations par jour, par route et par type ;
+une validation refuse tout autre caractère.
+
+| Route | Type | J1 | J2 | … | J7 | Rot./sem. par type | Rot./sem. route |
+|---|---|---|---|---|---|---|---|
+| **CDGRUN** | 77W | 1 | 1 | … | 1 | 7 | 11 |
+| | 787 | 1 | | | | 2 | |
+| | A320 | **01** | | | | 2 | |
+
+Les 12 tableaux sont indépendants : la fréquence peut être différente chaque mois. Celui du mois
+filtré a son titre **en vert**. Pour reprendre un mois sur un autre : copier la zone des 7 jours
+(36 lignes) et la coller dans le tableau cible.
 
 ### Lecture d'une cellule de la grille
 
@@ -50,15 +62,15 @@ La cellule a **deux lignes** :
 
 | Affichage | Signification |
 |---|---|
-| `787` | une rotation qui **part** ce jour-là (A/R dans la journée si `Retour J+0`) |
-| `77W/787/A320` | trois rotations qui partent le même jour |
-| `< 77W` (2ᵉ ligne) | **retour** d'une rotation partie J-n |
-| `787 (+A320)` | rotation du programme + un vol additionnel |
+| `77W/787/2xA320` | 4 rotations partent ce jour-là : une 77W, une 787 et **deux** A320 |
+| `< 77W/A320` (2ᵉ ligne) | les **retours** du jour : une 77W et une A320 parties les jours précédents |
+| `787 (+A320)` | programme + un vol additionnel |
 | `(+A320)` / `(+2x787)` | vol additionnel seul |
 
-Exemple `CDGRUN` (retour J+1) un lundi : `77W/787/A320` puis `< 77W` — trois rotations partent, et
-le 77W parti le dimanche rentre ce jour-là. Les cellules contenant un vol additionnel sont
-entourées d'une **bordure rouge**.
+Exemple `CDGRUN` en avril, lundi `01` sur la ligne A320 : la grille affiche
+`77W/787/2xA320` puis `< 77W` le lundi, et `77W` puis `< 77W/787/A320` le mardi — l'un des deux
+A320 est rentré dans la journée, l'autre rentre le mardi. Les cellules contenant un vol additionnel
+sont entourées d'une **bordure rouge**.
 
 ### Repères calculés (colonnes N/O)
 
@@ -95,8 +107,7 @@ total général. Il ne dépend que du filtre Mois.
 
 ## Feuille 2 — Analyse capacite
 
-Lecture automatique de la feuille 1 (les 12 tableaux + les vols additionnels), croisée avec les
-capacités. **Aucune saisie sauf les hypothèses** (cellules bleues) :
+Lecture automatique de la feuille 1, croisée avec les hypothèses (**seules cellules saisissables**) :
 
 | Hypothèse | Valeur |
 |---|---|
@@ -108,48 +119,44 @@ capacités. **Aucune saisie sauf les hypothèses** (cellules bleues) :
 > `Legs comptés par rotation` = 1 : l'aller-retour compte pour un vol, les sièges offerts sont ceux
 > d'un sens. Mettre `2` pour compter l'aller **et** le retour.
 
-Contenu :
-
-1. **Synthèse annuelle par route** : rotations, sièges offerts, sièges/rotation, part du réseau.
-2. **Sièges offerts par mois et par route** (12 mois × 12 routes + totaux).
-3. **Rotations par mois et par route**.
-4. **Rotations et sièges par type avion et par mois**, avec le siège moyen par rotation.
-5. Blocs automatiques : calendrier (occurrences de chaque jour par mois) et détail par route, type
-   et mois.
+Contenu : synthèse annuelle par route · sièges offerts par mois et par route · rotations par mois et
+par route · rotations et sièges par type avion et par mois · blocs automatiques (calendrier des
+occurrences, détail route × type × mois).
 
 ## Règles de calcul
 
 - Le tableau lu = celui du mois filtré (`INDEX` sur la zone des 12 tableaux, décalage de 39 lignes
   par mois).
+- **Chaque caractère saisi = une rotation**, comptée le jour de son départ quel que soit son retour :
+  le nombre de rotations d'un jour est la longueur du code (`LEN`).
+- Le jour de retour d'une rotation = son jour de départ + le chiffre du caractère, avec report sur
+  la semaine suivante quand le décalage franchit le dimanche.
 - Semaine 1 = semaine calendaire contenant le 1er du mois ; seules les dates réellement comprises
   dans le mois sont comptées (semaines partielles incluses).
-- Pour chaque jour d'aller coché, le nombre d'occurrences de ce jour dans le mois est compté à
-  partir des dates réelles, **chaque type avion compté séparément**.
-- Le jour de retour affiché = jour d'aller décalé de `Retour J+n`, avec report sur la semaine
-  suivante quand le décalage franchit le dimanche.
 - `Total rotations du mois` = **programme du mois + vols additionnels** datés du mois.
 - Sièges = rotations par type × capacité du type × legs comptés.
 
 ## Exemples validés
 
-| Mois filtré | Route | Rot./sem. | Total du mois |
-|---|---|---|---|
-| avril 2027 | NOSRUN (A320 3/7, retour J+0) | 3 | 13 + 2 vols add. = **15** |
-| avril 2027 | CDGRUN (77W 7/7 + 787 2/7 + A320 1/7, retour J+1) | 10 | **45** (30 / 11 / 4) |
-| aout 2027 | CDGRUN (77W 7/7 + 787 7/7) | 14 | **62** (31 / 31 / 0) |
+| Mois | Route | Programme | Rot./sem. | Total du mois |
+|---|---|---|---|---|
+| avril 2027 | CDGRUN | 77W 7/7 `1` · 787 `1` J1/J5 · A320 `01` J1 | 11 | **49** (30 / 11 / 8) |
+| avril 2027 | RRGRUN | A320 6 jours dont `00` le jeudi | 7 | **31** |
+| avril 2027 | NOSRUN | A320 `0` J1/J4/J6 | 3 | 13 + 2 vols add. = **15** |
+| aout 2027 | CDGRUN | 77W 7/7 + 787 7/7 | 14 | **62** |
 
-Réseau : **193 rotations en avril 2027** (34 en 77W, 46 en 787, 113 en A320) soit **46 606 sièges**,
-et sur l'année **2 334 rotations** pour **564 692 sièges**. Le passage au retour décalé ne change
-aucun total : la rotation est comptée le jour de son aller.
+Réseau : **202 rotations en avril 2027** (34 en 77W, 46 en 787, 122 en A320) soit **48 172 sièges**,
+et sur l'année **2 434 rotations** pour **582 092 sièges**. Les totaux de la feuille 2 sont recoupés
+mois par mois avec ceux de la feuille 1.
 
 ## Données livrées
 
-Les routes et les types avion sont ceux de la demande. Les 12 tableaux sont pré-remplis avec le
-même programme de base, **valeurs d'exemple à ajuster** — sauf `NOSRUN`, qui reprend l'exemple
-fourni (3/7 en A320 sur J1/J4/J6). Décalages retour livrés : `1` pour CDGRUN, CDGDZA et BKKRUN
-(long-courriers), `0` ailleurs — à ajuster. Trois mois montrent une saisonnalité : `NOSRUN` en
-juillet (4/7) et décembre (5/7), `CDGRUN` en août (77W 7/7 + 787 7/7). Les cellules de saisie sont
-en **bleu**.
+Les routes et les types avion sont ceux de la demande. Les 12 tableaux sont pré-remplis avec le même
+programme de base, **valeurs d'exemple à ajuster** — sauf `NOSRUN`, qui reprend l'exemple fourni
+(3/7 en A320 sur J1/J4/J6). Deux exemples illustrent les nouveaux codes : `CDGRUN` A320 le lundi
+(`01`, deux rotations à retours différents) et `RRGRUN` le jeudi (`00`, double rotation du même
+type). Trois mois montrent une saisonnalité : `NOSRUN` en juillet (4/7) et décembre (5/7), `CDGRUN`
+en août. Les cellules de saisie sont en **bleu**.
 
 ## Régénérer le fichier
 

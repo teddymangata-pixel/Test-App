@@ -2,10 +2,13 @@
 """Genere le classeur 'Programme de vols mensuel' (2 feuilles).
 
 Feuille 1 "Programme de vols" : 12 tableaux de saisie (un par mois). Chaque route y occupe
-3 lignes = les 3 types avion (77W / 787 / A320) ; on coche les jours d'operation J1-J7.
-Aucune notion de sieges sur cette feuille.
-Feuille 2 "Analyse capacite" : interpretation automatique de la feuille 1 avec les capacites
-(sieges par rotation) : sieges offerts par mois, par route et par type avion.
+3 lignes = les 3 types avion (77W / 787 / A320). Dans une case de jour, on saisit UN CARACTERE
+PAR ROTATION, et ce caractere indique le decalage du retour de cette rotation :
+   0 (ou x) = retour le jour meme     1 = retour a J+1     2 = J+2     3 = J+3
+Exemples : "0" = 1 rotation A/R dans la journee ; "1" = 1 rotation qui rentre le lendemain ;
+"01" = 2 rotations le meme jour, la premiere rentre le jour meme, la seconde le lendemain ;
+"00" = 2 rotations rentrant toutes deux le jour meme. Aucune notion de sieges sur cette feuille.
+Feuille 2 "Analyse capacite" : interpretation automatique avec les capacites (sieges/rotation).
 """
 import datetime
 from openpyxl import Workbook
@@ -18,7 +21,8 @@ from openpyxl.comments import Comment
 
 OUT = "/home/user/Test-App/Programme_vols_mensuel_2027-2028.xlsx"
 F = "Arial"
-X = "x"          # marque de case cochee
+MAX_ROT = 4          # rotations maximum par jour, par route et par type
+OFFSETS = "0123"     # decalages de retour autorises (x = alias de 0)
 
 ROUTES = [
     ("CDGRUN", "9DC3E6", False), ("CDGDZA", "2E75B6", True),  ("BKKRUN", "FFE699", False),
@@ -36,33 +40,28 @@ MOIS = [("avril 2027",2027,4),("mai 2027",2027,5),("juin 2027",2027,6),("juillet
         ("novembre 2027",2027,11),("decembre 2027",2027,12),("janvier 2028",2028,1),
         ("fevrier 2028",2028,2),("mars 2028",2028,3)]
 JOURS = ["J1 - Lundi","J2 - Mardi","J3 - Mercredi","J4 - Jeudi","J5 - Vendredi","J6 - Samedi","J7 - Dimanche"]
+_ = None
 
-# Programme de base recopie dans les 12 tableaux : {route: {type: [J1..J7 coche ?]}}
+# Programme de base recopie dans les 12 tableaux : {route: {type: [codes J1..J7]}}
 BASE = {
-    "CDGRUN": {"77W": [1,1,1,1,1,1,1], "787": [1,0,0,0,1,0,0], "A320": [1,0,0,0,0,0,0]},
-    "CDGDZA": {"77W": [0,0,0,0,0,0,1], "787": [0,1,0,0,1,0,0], "A320": [0]*7},
-    "BKKRUN": {"77W": [0]*7,           "787": [0,0,1,0,0,1,0], "A320": [0]*7},
-    "DZARUN": {"77W": [0]*7,           "787": [0,0,1,0,0,0,0], "A320": [1,1,1,1,1,0,0]},
-    "MRURUN": {"77W": [0]*7,           "787": [0]*7,           "A320": [1,0,1,0,1,0,1]},
-    "NOSRUN": {"77W": [0]*7,           "787": [0]*7,           "A320": [1,0,0,1,0,1,0]},
-    "RUNTNR": {"77W": [0]*7,           "787": [0]*7,           "A320": [0,1,0,1,0,1,0]},
-    "JNBRUN": {"77W": [0]*7,           "787": [1,0,0,0,1,0,0], "A320": [0]*7},
-    "CPTRUN": {"77W": [0]*7,           "787": [0,0,0,1,0,0,0], "A320": [0]*7},
-    "DIERUN": {"77W": [0]*7,           "787": [0]*7,           "A320": [0,1,0,0,0,1,0]},
-    "RRGRUN": {"77W": [0]*7,           "787": [0]*7,           "A320": [1,1,1,1,1,1,0]},
-    "TMMRUN": {"77W": [0]*7,           "787": [0]*7,           "A320": [0,0,1,0,0,0,1]},
+    "CDGRUN": {"77W": ["1","1","1","1","1","1","1"], "787": ["1",_,_,_,"1",_,_], "A320": ["01",_,_,_,_,_,_]},
+    "CDGDZA": {"77W": [_,_,_,_,_,_,"1"],             "787": [_,"1",_,_,"1",_,_], "A320": [_]*7},
+    "BKKRUN": {"77W": [_]*7,                         "787": [_,_,"1",_,_,"1",_], "A320": [_]*7},
+    "DZARUN": {"77W": [_]*7,                         "787": [_,_,"0",_,_,_,_],   "A320": ["0","0","0","0","0",_,_]},
+    "MRURUN": {"77W": [_]*7,                         "787": [_]*7,               "A320": ["0",_,"0",_,"0",_,"0"]},
+    "NOSRUN": {"77W": [_]*7,                         "787": [_]*7,               "A320": ["0",_,_,"0",_,"0",_]},
+    "RUNTNR": {"77W": [_]*7,                         "787": [_]*7,               "A320": [_,"0",_,"0",_,"0",_]},
+    "JNBRUN": {"77W": [_]*7,                         "787": ["0",_,_,_,"0",_,_], "A320": [_]*7},
+    "CPTRUN": {"77W": [_]*7,                         "787": [_,_,_,"0",_,_,_],   "A320": [_]*7},
+    "DIERUN": {"77W": [_]*7,                         "787": [_]*7,               "A320": [_,"0",_,_,_,"0",_]},
+    "RRGRUN": {"77W": [_]*7,                         "787": [_]*7,               "A320": ["0","0","0","00","0","0",_]},
+    "TMMRUN": {"77W": [_]*7,                         "787": [_]*7,               "A320": [_,_,"0",_,_,_,"0"]},
 }
-# Exemples de saisonnalite : programme different pour certains mois {(mois, route): {type: [...]}}
 SAISON = {
-    ("juillet 2027", "NOSRUN"):  {"77W": [0]*7, "787": [0]*7, "A320": [1,0,1,1,0,1,0]},
-    ("decembre 2027", "NOSRUN"): {"77W": [0]*7, "787": [0]*7, "A320": [1,1,0,1,0,1,1]},
-    ("aout 2027", "CDGRUN"):     {"77W": [1]*7, "787": [1]*7, "A320": [0]*7},
+    ("juillet 2027", "NOSRUN"):  {"77W": [_]*7, "787": [_]*7, "A320": ["0",_,"0","0",_,"0",_]},
+    ("decembre 2027", "NOSRUN"): {"77W": [_]*7, "787": [_]*7, "A320": ["0","0",_,"0",_,"0","0"]},
+    ("aout 2027", "CDGRUN"):     {"77W": ["1"]*7, "787": ["1"]*7, "A320": [_]*7},
 }
-# Decalage du retour par rapport a l'aller, par route (0 = aller-retour dans la journee).
-# Valeurs d'exemple : les long-courriers repartent le lendemain.
-RETOUR = {"CDGRUN": 1, "CDGDZA": 1, "BKKRUN": 1, "DZARUN": 0, "MRURUN": 0, "NOSRUN": 0,
-          "RUNTNR": 0, "JNBRUN": 0, "CPTRUN": 0, "DIERUN": 0, "RRGRUN": 0, "TMMRUN": 0}
-
 VOLS_ADD = [
     (datetime.date(2027,4,7),  "NOSRUN", "A320", 1, "EXEMPLE a supprimer - vol supplementaire un mercredi (jour hors programme)"),
     (datetime.date(2027,4,10), "NOSRUN", "A320", 1, "EXEMPLE a supprimer - rotation doublee un samedi (jour deja opere)"),
@@ -79,18 +78,17 @@ ROW_SEC_TITLE, ROW_NAV, BLK0 = 41, 45, 48
 NB_T = len(TYPES)
 NB_ROWS_BLK = NB_T*len(ROUTES)                    # 36
 STEP = NB_ROWS_BLK + 3                            # 39
-DATA0 = BLK0 + 2                                  # 49
-DATA_LAST = BLK0 + (len(MOIS)-1)*STEP + 1 + NB_ROWS_BLK      # 513
-ROW_ADD_TITLE = DATA_LAST + 3                     # 516
+DATA0 = BLK0 + 2                                  # 50
+DATA_LAST = BLK0 + (len(MOIS)-1)*STEP + 1 + NB_ROWS_BLK
+ROW_ADD_TITLE = DATA_LAST + 3
 ROW_ADD_HDR, ROW_ADD0 = ROW_ADD_TITLE + 4, ROW_ADD_TITLE + 5
 NB_ADD_ROWS = 40
-ROW_ADD_END = ROW_ADD0 + NB_ADD_ROWS - 1          # 560
+ROW_ADD_END = ROW_ADD0 + NB_ADD_ROWS - 1
 SAI_C0 = 4                                        # colonne D = J1 dans les tableaux de saisie
 R_REP0 = 4                                        # reperes : lignes 4..13
-R_HELP_TITLE, R_HELP_HDR, R_HELP_TXT, R_HELP_S0 = 15, 16, 17, 18
-R_HELP_R0 = R_HELP_S0 + 3                         # lignes "retour" du bloc auto
-R_HELP_TXT_R = R_HELP_R0 + 3                      # ligne texte des retours (24)
-R_MAT_TITLE, R_MAT_HDR, R_MAT0 = 25, 26, 27
+R_HELP_TITLE, R_HELP_HDR, R_HELP_TXT, R_HELP_TXT_R = 15, 16, 17, 18
+R_CODE0, R_DEP0, R_RET0 = 19, 22, 25              # bloc auto de la route filtree (3 lignes chacun)
+R_MAT_TITLE, R_MAT_HDR, R_MAT0 = 29, 30, 31
 HELP_C0, REF0 = 15, 4
 
 wb = Workbook()
@@ -119,17 +117,14 @@ med = Side(style="medium", color="404040")
 box = Border(left=thin, right=thin, top=thin, bottom=thin)
 NAVY, LIGHT, GREY, BROWN, RED, ACTIVE, CHECK = "1F3864", "D9E2F3", "F2F2F2", "833C0C", "C00000", "375623", "70AD47"
 BLUE_IN = "0000FF"
-CHK_FMT = ';;;"X"'                          # toute saisie texte s'affiche en X centre
 
-BIG = f"$D${DATA0}:$J${DATA_LAST}"                             # les 12 tableaux (7 jours)
-BIG_R = f"$K${DATA0}:$K${DATA_LAST}"                           # colonne "Retour J+n"
-MAT = f"$O${R_MAT0}:$U${R_MAT0+NB_ROWS_BLK-1}"                 # programme du mois filtre (auto)
+BIG = f"$D${DATA0}:$J${DATA_LAST}"                              # les 12 tableaux (7 jours)
+MAT = f"$O${R_MAT0}:$U${R_MAT0+NB_ROWS_BLK-1}"                  # programme du mois filtre (auto)
 ADD_D, ADD_R = f"$B${ROW_ADD0}:$B${ROW_ADD_END}", f"$C${ROW_ADD0}:$C${ROW_ADD_END}"
 ADD_T, ADD_N = f"$D${ROW_ADD0}:$D${ROW_ADD_END}", f"$E${ROW_ADD0}:$E${ROW_ADD_END}"
 ADD_K = f"$H${ROW_ADD0}:$H${ROW_ADD_END}"
 OCC = f"$C${ROW_OCC}:$I${ROW_OCC}"
 hc = lambda j: gl(HELP_C0+j)
-OFFC = gl(HELP_C0+7)                              # colonne V : decalage retour (auto)
 blk_title = lambda k: BLK0 + k*STEP
 mat_row = lambda i, t: R_MAT0 + NB_T*i + TYPES.index(t)
 
@@ -139,12 +134,13 @@ cell("B1", "PROGRAMME DE VOLS MENSUEL - ANNEE D'EXPLOITATION AVRIL 2027 / MARS 2
      bold=True, size=16, color="FFFFFF", fill=NAVY, halign="left")
 ws.row_dimensions[1].height = 30
 ws.merge_cells("B2:I2")
-cell("B2", "Feuille de programmation : les deux filtres ci-dessous (Mois et Route) pilotent la grille, le recapitulatif ne "
-           "suit que le filtre Mois. La saisie se fait dans 12 tableaux identiques, un par mois : chaque route y occupe 3 lignes, "
-           "une par type avion (77W / 787 / A320), et il suffit de COCHER le jour d'aller de chaque rotation (une case = un aller-retour ; la colonne Retour J+n gere les retours qui ne tombent pas le meme jour). La feuille \"Analyse capacite\" "
-           "traduit ce programme en sieges offerts.",
+cell("B2", "Feuille de programmation : les deux filtres ci-dessous (Mois et Route) pilotent la grille, le recapitulatif ne suit que "
+           "le filtre Mois. La saisie se fait dans 12 tableaux identiques, un par mois : chaque route y occupe 3 lignes, une par "
+           "type avion (77W / 787 / A320). Dans une case de jour, on saisit un caractere par rotation, et ce caractere indique le "
+           "decalage du retour de cette rotation (0 = retour le jour meme, 1 = J+1...). La feuille \"Analyse capacite\" traduit ce "
+           "programme en sieges offerts.",
      size=9, italic=True, halign="left", wrap=True, color="404040")
-ws.row_dimensions[2].height = 26
+ws.row_dimensions[2].height = 32
 cell("B4", "FILTRE  MOIS", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
 ws.merge_cells("C4:D4")
 cell("C4", "avril 2027", bold=True, size=12, color=BLUE_IN, fill="FFF2CC",
@@ -186,7 +182,6 @@ cell(f"N{R_MAT_TITLE}", "PROGRAMME DU MOIS FILTRE, TOUTES ROUTES (auto - recopie
 cell(f"N{R_MAT_HDR}", "Route / type", bold=True, size=8, fill=GREY, border=box)
 for j in range(7):
     cell(f"{hc(j)}{R_MAT_HDR}", f"J{j+1}", bold=True, size=8, fill=GREY, border=box)
-cell(f"{OFFC}{R_MAT_HDR}", "Retour J+", bold=True, size=8, fill=GREY, border=box)
 for i, (route, colr, white) in enumerate(ROUTES):
     for ti, t in enumerate(TYPES):
         r = mat_row(i, t)
@@ -194,8 +189,6 @@ for i, (route, colr, white) in enumerate(ROUTES):
         for j in range(7):
             rel = f"({MIDX}-1)*{STEP}+{NB_T*i+ti+1}"
             cell(f"{hc(j)}{r}", f'=IFERROR(INDEX({BIG},{rel},{j+1})&"","")', size=8, border=box)
-        rel = f"({MIDX}-1)*{STEP}+{NB_T*i+ti+1}"
-        cell(f"{OFFC}{r}", f'=IFERROR(INDEX({BIG_R},{rel})+0,0)', size=8, fmt="0", border=box)
 
 # ---------------------------------------------------------------- auto : programme de la route filtree
 ws.merge_cells(f"N{R_HELP_TITLE}:{hc(6)}{R_HELP_TITLE}")
@@ -204,33 +197,35 @@ cell(f"N{R_HELP_TITLE}", "PROGRAMME DE LA ROUTE FILTREE (auto - alimente la gril
 cell(f"N{R_HELP_HDR}", "Jour", bold=True, size=8, fill=GREY, border=box)
 for j in range(7):
     cell(f"{hc(j)}{R_HELP_HDR}", f"J{j+1}", bold=True, size=8, fill=GREY, border=box)
-cell(f"N{R_HELP_TXT}", "Allers du jour (affichage grille)", bold=True, size=8, halign="left", fill=GREY, border=box)
-cell(f"N{R_HELP_TXT_R}", "Retours du jour (affichage grille)", bold=True, size=8, halign="left", fill=GREY, border=box)
-cell(f"{OFFC}{R_HELP_HDR}", "Retour J+", bold=True, size=8, fill=GREY, border=box)
+cell(f"N{R_HELP_TXT}", "Departs du jour (grille)", bold=True, size=8, halign="left", fill=GREY, border=box)
+cell(f"N{R_HELP_TXT_R}", "Retours du jour (grille)", bold=True, size=8, halign="left", fill=GREY, border=box)
 for ti, t in enumerate(TYPES):
-    cell(f"N{R_HELP_S0+ti}", f"{t} : jour d'aller", size=8, halign="left", fill=GREY, border=box)
-    cell(f"N{R_HELP_R0+ti}", f"{t} : jour de retour", size=8, halign="left", fill=GREY, border=box)
-    cell(f"{OFFC}{R_HELP_S0+ti}",
-         f'=IFERROR(INDEX(${OFFC}${R_MAT0}:${OFFC}${R_MAT0+NB_ROWS_BLK-1},'
-         f'(MATCH($C$5,$Z${REF0}:$Z${REF0+11},0)-1)*{NB_T}+{ti+1}),0)', size=8, bold=True, fmt="0", border=box)
+    cell(f"N{R_CODE0+ti}", f"{t} : code saisi", size=8, halign="left", fill=GREY, border=box)
+    cell(f"N{R_DEP0+ti}", f"{t} : rotations au depart", size=8, halign="left", fill=GREY, border=box)
+    cell(f"N{R_RET0+ti}", f"{t} : retours ce jour", size=8, halign="left", fill=GREY, border=box)
 RIDX = f'MATCH($C$5,$Z${REF0}:$Z${REF0+11},0)'
 for j in range(7):
     c = hc(j)
     for ti, t in enumerate(TYPES):
-        cell(f"{c}{R_HELP_S0+ti}",
-             f'=IFERROR(INDEX({MAT},({RIDX}-1)*{NB_T}+{ti+1},{j+1})&"","")', size=9, border=box)
-    for ti, t in enumerate(TYPES):     # jour de retour = jour d'aller decale de N jours
-        cell(f"{c}{R_HELP_R0+ti}",
-             f'=IF(${OFFC}${R_HELP_S0+ti}=0,"",INDEX($O${R_HELP_S0+ti}:$U${R_HELP_S0+ti},'
-             f'MOD({j+1}-1-${OFFC}${R_HELP_S0+ti},7)+1)&"")', size=9, border=box)
-    allers = '&" "&'.join(f'IF({c}${R_HELP_S0+ti}="","","{t}")' for ti, t in enumerate(TYPES))
-    retours = '&" "&'.join(f'IF({c}${R_HELP_R0+ti}="","","{t}")' for ti, t in enumerate(TYPES))
-    cell(f"{c}{R_HELP_TXT}", f'=SUBSTITUTE(TRIM({allers})," ","/")', bold=True, size=9, border=box)
-    cell(f"{c}{R_HELP_TXT_R}", f'=SUBSTITUTE(TRIM({retours})," ","/")', size=9, border=box)
+        cell(f"{c}{R_CODE0+ti}",
+             f'=IFERROR(INDEX({MAT},({RIDX}-1)*{NB_T}+{ti+1},{j+1})&"","")', size=8, border=box)
+        cell(f"{c}{R_DEP0+ti}", f"=LEN({c}{R_CODE0+ti})", size=8, fmt="0", border=box)
+        # retours du jour : rotations parties J-k et dont le code porte le decalage k
+        terms = []
+        for k in range(1, len(OFFSETS)):
+            src = f"{hc((j - k) % 7)}${R_CODE0+ti}"
+            terms.append(f'LEN({src})-LEN(SUBSTITUTE({src},"{k}",""))')
+        cell(f"{c}{R_RET0+ti}", "=" + "+".join(terms), size=8, fmt="0", border=box)
+    dep = '&" "&'.join(f'IF({c}${R_DEP0+ti}=0,"",IF({c}${R_DEP0+ti}=1,"{t}",{c}${R_DEP0+ti}&"x{t}"))'
+                       for ti, t in enumerate(TYPES))
+    ret = '&" "&'.join(f'IF({c}${R_RET0+ti}=0,"",IF({c}${R_RET0+ti}=1,"{t}",{c}${R_RET0+ti}&"x{t}"))'
+                       for ti, t in enumerate(TYPES))
+    cell(f"{c}{R_HELP_TXT}", f'=SUBSTITUTE(TRIM({dep})," ","/")', bold=True, size=9, border=box)
+    cell(f"{c}{R_HELP_TXT_R}", f'=SUBSTITUTE(TRIM({ret})," ","/")', size=9, border=box)
 
 # ---------------------------------------------------------------- grille
 ws.merge_cells(f"B{ROW_HDR-1}:I{ROW_HDR-1}")
-cell(f"B{ROW_HDR-1}", "GRILLE MENSUELLE  -  type avion opere par semaine et par jour (filtres Mois + Route)",
+cell(f"B{ROW_HDR-1}", "GRILLE MENSUELLE  -  rotations par semaine et par jour (filtres Mois + Route)",
      bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
 cell(f"B{ROW_HDR}", "Semaine", bold=True, size=10, color="FFFFFF", fill="2F5597", border=box)
 for j in range(7):
@@ -257,9 +252,9 @@ for k in range(1, NB_WEEKS+1):
         lbl = f'IF({nrows}=1,IF({nrot}=1,{t1},{nrot}&"x"&{t1}),{nrot}&" vols")'
         AL = f'TRIM(${hc(j)}${R_HELP_TXT}&IF({nrot}=0,""," (+"&{lbl}&")"))'
         RE = f"${hc(j)}${R_HELP_TXT_R}"
-        cell(f"{col}{rt}",
-             f'=IF({d}="","",{AL}&IF({RE}="","",IF({AL}="","",CHAR(10))&"< "&{RE}))',
+        cell(f"{col}{rt}", f'=IF({d}="","",{AL}&IF({RE}="","",IF({AL}="","",CHAR(10))&"< "&{RE}))',
              bold=True, size=10, wrap=True, border=box)
+
 cell(f"B{ROW_OCC}", "Occurrences du jour dans le mois", bold=True, size=9, halign="left", fill="E7E6E6", border=box)
 for j in range(7):
     col = gl(GRID_C0+j)
@@ -269,8 +264,9 @@ cell(f"B{ROW_NBW}", "Nb de semaines calendaires du mois", bold=True, size=9, hal
 cell(f"C{ROW_NBW}", "=" + "+".join(f'IF(COUNT({gl(GRID_C0)}{r}:{gl(GRID_C0+6)}{r})>0,1,0)' for r in date_rows),
      bold=True, size=10, fill="E7E6E6", border=box)
 ws.merge_cells(f"D{ROW_NBW}:I{ROW_NBW}")
-cell(f"D{ROW_NBW}", 'Lecture : "787" = 1 vol du programme  |  "77W/787/A320" = '
-                    'programme + vol additionnel (bordure rouge)  |  "(+A320)" = vol additionnel seul.',
+cell(f"D{ROW_NBW}", 'Lecture d\'une cellule : 1re ligne = les rotations qui PARTENT ce jour-la ("2xA320" = deux rotations A320, '
+                    '"77W/787" = une de chaque)  |  2e ligne "< 787" = les RETOURS de rotations parties les jours precedents  |  '
+                    '"(+A320)" = vol additionnel (bordure rouge).',
      size=8, italic=True, color="595959", halign="left")
 
 # ---------------------------------------------------------------- recapitulatif
@@ -285,17 +281,16 @@ ws.row_dimensions[ROW_REC_HDR].height = 44
 for i in range(len(ROUTES)):
     r = ROW_REC0 + i
     rows = {t: mat_row(i, t) for t in TYPES}
-    blk = f"$O${rows[TYPES[0]]}:$U${rows[TYPES[-1]]}"
     add = lambda extra="": f'SUMIFS({ADD_N},{ADD_R},$B{r}{extra},{ADD_D},">="&$O$4,{ADD_D},"<="&$O$5)'
-    nsem = {t: f'SUMPRODUCT(--($O${rows[t]}:$U${rows[t]}<>""))' for t in TYPES}
-    prod = {t: f'SUMPRODUCT({OCC},--($O${rows[t]}:$U${rows[t]}<>""))' for t in TYPES}
+    nsem = {t: f'SUMPRODUCT(LEN($O${rows[t]}:$U${rows[t]}))' for t in TYPES}
+    prod = {t: f'SUMPRODUCT({OCC},LEN($O${rows[t]}:$U${rows[t]}))' for t in TYPES}
     cell(f"B{r}", f"=$Z${REF0+i}", bold=True, size=10, border=box)
     tl = "&".join(f'IF({nsem[t]}>0,"{t}("&{nsem[t]}&") ","")' for t in TYPES)
     cell(f"C{r}", f'=IF(E{r}=0,"-",SUBSTITUTE(TRIM({tl})," ",", "))', size=9, wrap=True, border=box)
-    jl = "&".join(f'IF(SUMPRODUCT(--(${hc(j)}${rows[TYPES[0]]}:${hc(j)}${rows[TYPES[-1]]}<>""))>0,"J{j+1} ","")'
+    jl = "&".join(f'IF(SUMPRODUCT(LEN(${hc(j)}${rows[TYPES[0]]}:${hc(j)}${rows[TYPES[-1]]}))>0,"J{j+1} ","")'
                   for j in range(7))
     cell(f"D{r}", f'=IF(E{r}=0,"aucune operation",SUBSTITUTE(TRIM({jl})," ",", "))', size=9, wrap=True, border=box)
-    cell(f"E{r}", f'=SUMPRODUCT(--({blk}<>""))', size=10, fmt="0", border=box)
+    cell(f"E{r}", "=" + "+".join(nsem[t] for t in TYPES), size=10, fmt="0", border=box)
     cell(f"F{r}", f"=$C${ROW_NBW}", size=10, fmt="0", border=box)
     cell(f"G{r}", f"=H{r}+I{r}", bold=True, size=11, fmt="0", border=box)
     cell(f"H{r}", "=" + "+".join(prod[t] for t in TYPES), size=10, fmt="0", border=box)
@@ -311,30 +306,28 @@ for c in ("E", "F", "G", "H", "I", "J", "K", "L"):
     cell(f"{c}{ROW_REC_TOT}", f, bold=True, size=11 if c == "G" else 10, color="FFFFFF", fill=NAVY, fmt="0", border=box)
 r = ROW_REC_TOT + 1
 ws.merge_cells(f"B{r}:L{r+1}")
-cell(f"B{r}", "Methode : le recapitulatif lit le tableau de saisie du mois filtre. Pour chaque jour coche, le nombre d'occurrences "
-              "de ce jour dans le mois est compte a partir des dates reelles de la grille (ligne \"Occurrences du jour dans le "
-              "mois\", semaines partielles incluses), chaque type avion etant compte separement. Total rotations du mois = "
-              "programme du mois + vols additionnels dates. Une case cochee = 1 rotation ; pour deux rotations du meme type le "
-              "meme jour, utiliser la table des vols additionnels.",
+cell(f"B{r}", "Methode : le recapitulatif lit le tableau de saisie du mois filtre. Chaque caractere saisi dans une case = une "
+              "rotation (un aller-retour), comptee le jour de son depart quel que soit le decalage de son retour. Pour chaque jour "
+              "opere, le nombre d'occurrences de ce jour dans le mois est compte a partir des dates reelles de la grille (ligne "
+              "\"Occurrences du jour dans le mois\", semaines partielles incluses), chaque type avion etant compte separement. "
+              "Total rotations du mois = programme du mois + vols additionnels dates.",
      size=8, italic=True, color="595959", halign="left", wrap=True)
 
 # ---------------------------------------------------------------- 12 tableaux de saisie
 ws.merge_cells(f"B{ROW_SEC_TITLE}:L{ROW_SEC_TITLE}")
-cell(f"B{ROW_SEC_TITLE}", "1) SAISIE DU PROGRAMME : 12 TABLEAUX, UN PAR MOIS  -  COCHER LES JOURS D'ALLER DE CHAQUE ROTATION",
+cell(f"B{ROW_SEC_TITLE}", "1) SAISIE DU PROGRAMME : 12 TABLEAUX, UN PAR MOIS  -  UN CARACTERE PAR ROTATION",
      bold=True, size=11, color="FFFFFF", fill=BROWN, halign="left")
-ws.merge_cells(f"B{ROW_SEC_TITLE+1}:M{ROW_SEC_TITLE+3}")
+ws.merge_cells(f"B{ROW_SEC_TITLE+1}:L{ROW_SEC_TITLE+3}")
 cell(f"B{ROW_SEC_TITLE+1}",
-     "UNE CASE COCHEE = UNE ROTATION (un aller-retour). COCHER : taper x dans la case du jour de l'ALLER (elle devient une "
-     "case verte cochee X). DECOCHER : touche Suppr. Pour cocher "
-     "plusieurs cases d'un coup : selectionner la plage, taper x puis Ctrl+Entree. Chaque route occupe 3 lignes = les 3 types "
-     "avion (77W / 787 / A320) : cocher la ligne du type qui opere. Cocher deux ou trois lignes le meme jour = 2 ou 3 rotations ce "
-     "jour-la avec des types differents (une case cochee = 1 rotation ; pour 2 rotations du meme type le meme jour, utiliser la "
-     "table des vols additionnels). RETOUR J+n : quand l'aller-retour ne se fait pas dans la journee, indiquer le decalage du "
-     "retour dans la colonne Retour J+n (0 = A/R le meme jour, 1 = retour le lendemain, 2 = surlendemain...). La rotation "
-     "reste comptee une seule fois, le jour de l'aller ; la grille affiche alors \"787>\" le jour du depart et \"<787\" le "
-     "jour du retour. Les 12 tableaux sont independants : la frequence peut donc etre differente chaque mois. Le "
-     "tableau du mois filtre est signale en vert. Pour reprendre un mois sur un autre : copier la zone des 7 jours (36 lignes) et "
-     "la coller dans le tableau cible. Valeurs livrees = exemples a ajuster.",
+     "Cellules en BLEU = saisie utilisateur. Chaque route occupe 3 lignes = les 3 types avion. Dans la case d'un jour, on saisit "
+     "UN CARACTERE PAR ROTATION (aller-retour) qui part ce jour-la, et ce caractere indique QUAND CETTE ROTATION RENTRE :  "
+     "0 (ou x) = retour le jour meme,  1 = retour a J+1,  2 = J+2,  3 = J+3.  Exemples :  \"0\" = 1 rotation aller-retour dans la "
+     "journee  |  \"1\" = 1 rotation qui rentre le lendemain  |  \"01\" = 2 rotations le meme jour, la premiere rentre le jour meme "
+     "et la seconde le lendemain  |  \"00\" = 2 rotations rentrant toutes deux le jour meme  |  \"11\" = 2 rotations rentrant toutes "
+     "deux a J+1. Case vide = aucun vol. La cellule devient verte des qu'elle contient au moins une rotation. Les 12 tableaux sont "
+     "independants : la frequence peut donc etre differente chaque mois. Le tableau du mois filtre est signale en vert. Pour "
+     "reprendre un mois sur un autre : copier la zone des 7 jours (36 lignes) et la coller dans le tableau cible. Valeurs livrees "
+     "= exemples a ajuster.",
      size=8, italic=True, color=BROWN, halign="left", wrap=True)
 ws.row_dimensions[ROW_SEC_TITLE+1].height = 76
 cell(f"B{ROW_NAV}", "Aller au mois :", bold=True, size=9, halign="left", fill=GREY, border=box)
@@ -346,14 +339,13 @@ for k, (lab, y, m) in enumerate(MOIS):
 
 for k, (lab, y, m) in enumerate(MOIS):
     t0 = blk_title(k)
-    ws.merge_cells(f"B{t0}:K{t0}")
+    ws.merge_cells(f"B{t0}:J{t0}")
     cell(f"B{t0}", f'="TABLEAU {k+1}/12  -  PROGRAMME DE {lab.upper()}"&IF($C$4="{lab}","          <<< MOIS ACTUELLEMENT FILTRE","")',
          bold=True, size=11, color="FFFFFF", fill=BROWN, halign="left")
     ws.row_dimensions[t0].height = 20
-    c = cell(f"M{t0}", "^ Retour en haut", size=8, italic=True, color="0563C1", halign="right")
-    c.hyperlink = Hyperlink(ref=f"K{t0}", location=f"'{ws.title}'!B1", tooltip="Retour en haut de la feuille")
-    for i, h in enumerate(["Route", "Type avion"] + JOURS + ["Retour J+n (0 = A/R le meme jour)",
-                                                             "Rot./sem. par type", "Rot./sem. route"]):
+    c = cell(f"L{t0}", "^ Retour en haut", size=8, italic=True, color="0563C1", halign="right")
+    c.hyperlink = Hyperlink(ref=f"L{t0}", location=f"'{ws.title}'!B1", tooltip="Retour en haut de la feuille")
+    for i, h in enumerate(["Route", "Type avion"] + JOURS + ["Rot./sem. par type", "Rot./sem. route"]):
         cell(f"{gl(2+i)}{t0+1}", h, bold=True, size=9, color="FFFFFF", fill="A6774B", wrap=True, border=box)
     ws.row_dimensions[t0+1].height = 26
     for i, (route, colr, white) in enumerate(ROUTES):
@@ -361,34 +353,33 @@ for k, (lab, y, m) in enumerate(MOIS):
         prog = SAISON.get((lab, route), BASE[route])
         ws.merge_cells(f"B{p}:B{p+NB_T-1}")
         cell(f"B{p}", route, bold=True, size=11, halign="left", border=box)
-        ws.merge_cells(f"M{p}:M{p+NB_T-1}")
-        cell(f"M{p}", f"=SUM(L{p}:L{p+NB_T-1})", bold=True, size=11, fmt="0", border=box)
+        ws.merge_cells(f"L{p}:L{p+NB_T-1}")
+        cell(f"L{p}", f"=SUM(K{p}:K{p+NB_T-1})", bold=True, size=11, fmt="0", border=box)
         for ti, t in enumerate(TYPES):
             r = p + ti
             cell(f"C{r}", t, bold=True, size=10, fill="F2E4D8", border=box)
             for j in range(7):
-                cell(f"{gl(SAI_C0+j)}{r}", X if prog[t][j] else None,
-                     bold=True, size=11, color=BLUE_IN, fmt=CHK_FMT, border=box)
-            cell(f"K{r}", RETOUR[route], size=10, bold=True, color=BLUE_IN, fill="FFF2CC", fmt="0", border=box)
-            cell(f"L{r}", f"=COUNTA(D{r}:J{r})", size=9, fmt="0", border=box)
+                cell(f"{gl(SAI_C0+j)}{r}", prog[t][j], bold=True, size=11, color=BLUE_IN, fmt="@", border=box)
+            cell(f"K{r}", f"=SUMPRODUCT(LEN(D{r}:J{r}))", size=9, fmt="0", border=box)
         for sl in range(1, NB_T):
             cell(f"B{p+sl}", border=box)
-            cell(f"M{p+sl}", border=box)
+            cell(f"L{p+sl}", border=box)
 ws[f"B{DATA0}"].comment = Comment(
     "12 tableaux identiques, un par mois.\n"
     "3 lignes par route = les 3 types avion 77W / 787 / A320.\n"
-    "Cocher le jour de l'ALLER : taper x. Decocher : touche Suppr.\n"
-    "Colonne Retour J+n : 0 = A/R le meme jour, 1 = retour le lendemain...\n"
-    "Copier/coller la zone des 7 jours pour reprendre un mois sur un autre.", "Modele")
+    "Un caractere par rotation partant ce jour-la :\n"
+    "  0 (ou x) = retour le jour meme, 1 = retour J+1, 2 = J+2, 3 = J+3.\n"
+    "Ex. : 01 = deux rotations, une rentre le jour meme, l'autre le lendemain.", "Modele")
 
 # ---------------------------------------------------------------- vols additionnels
 ws.merge_cells(f"B{ROW_ADD_TITLE}:L{ROW_ADD_TITLE}")
 cell(f"B{ROW_ADD_TITLE}", "2) VOLS ADDITIONNELS (en plus du programme du mois)",
      bold=True, size=11, color="FFFFFF", fill=BROWN, halign="left")
 ws.merge_cells(f"B{ROW_ADD_TITLE+1}:L{ROW_ADD_TITLE+2}")
-cell(f"B{ROW_ADD_TITLE+1}", "Une ligne = un vol supplementaire date (charter, renfort ponctuel, fret, seconde rotation du meme type le "
-                            "meme jour...). Il s'ajoute au programme du mois, sur n'importe quel jour. Il apparait dans la grille entre "
-                            "parentheses avec un + et une bordure rouge, et il est compte dans le recapitulatif du mois concerne.",
+cell(f"B{ROW_ADD_TITLE+1}", "Une ligne = un vol supplementaire date (charter, renfort ponctuel, fret...). Il s'ajoute au programme du "
+                            "mois, sur n'importe quel jour. Il apparait dans la grille entre parentheses avec un + et une bordure rouge, "
+                            "et il est compte dans le recapitulatif du mois concerne. Pour une rotation supplementaire recurrente, "
+                            "ajouter plutot un caractere dans la case du jour concerne du tableau mensuel.",
      size=8, italic=True, color=BROWN, halign="left", wrap=True)
 ws.row_dimensions[ROW_ADD_TITLE+1].height = 26
 for i, h in enumerate(["Date du vol", "Route", "Type avion", "Nb de rotations", "Commentaire (libre)"]):
@@ -428,12 +419,16 @@ L_MOIS, L_TYPE = f"=$W${REF0}:$W${REF0+11}", f"=$Y${REF0}:$Y${REF0+len(TYPES)-1}
 L_ROUTE = f"=$Z${REF0}:$Z${REF0+11}"
 add_dv(DataValidation(type="list", formula1=L_MOIS, allow_blank=False), "C4")
 add_dv(DataValidation(type="list", formula1=L_ROUTE, allow_blank=False), "C5")
-add_dv(DataValidation(type="list", formula1='"x,X"', allow_blank=True, showDropDown=True,
-                      errorTitle="Case a cocher", error="Taper x pour cocher la case, ou touche Suppr pour la decocher."),
+anchor = f"D{DATA0}"
+strip = f"UPPER({anchor})"
+strip = f'SUBSTITUTE({strip},"X","0")'
+for ch in OFFSETS:
+    strip = f'SUBSTITUTE({strip},"{ch}","")'
+add_dv(DataValidation(type="custom", formula1=f"=AND(LEN({anchor})<={MAX_ROT},LEN({strip})=0)",
+                      allow_blank=True, errorTitle="Code de rotation invalide",
+                      error="Saisir un caractere par rotation : 0 (ou x) = retour le jour meme, 1 = J+1, 2 = J+2, 3 = J+3.\n"
+                            f"Exemples : 0 | 1 | 01 | 00. Maximum {MAX_ROT} rotations par jour et par type."),
        [f"D{blk_title(k)+2}:J{blk_title(k)+1+NB_ROWS_BLK}" for k in range(len(MOIS))])
-add_dv(DataValidation(type="list", formula1='"0,1,2,3"', allow_blank=True, showDropDown=False,
-                      errorTitle="Decalage retour", error="0 = aller-retour le meme jour, 1 = retour le lendemain, etc."),
-       [f"K{blk_title(k)+2}:K{blk_title(k)+1+NB_ROWS_BLK}" for k in range(len(MOIS))])
 add_dv(DataValidation(type="list", formula1=L_ROUTE, allow_blank=True), f"C{ROW_ADD0}:C{ROW_ADD_END}")
 add_dv(DataValidation(type="list", formula1=L_TYPE, allow_blank=True), f"D{ROW_ADD0}:D{ROW_ADD_END}")
 add_dv(DataValidation(type="whole", operator="between", formula1="1", formula2="20", allow_blank=True,
@@ -454,6 +449,10 @@ ws.conditional_formatting.add(
                               top=Side(style="medium", color=RED), bottom=Side(style="medium", color=RED)),
                 stopIfTrue=False))
 chk_ranges = " ".join(f"D{blk_title(k)+2}:J{blk_title(k)+1+NB_ROWS_BLK}" for k in range(len(MOIS)))
+ws.conditional_formatting.add(
+    chk_ranges,
+    FormulaRule(formula=[f'LEN(D{DATA0})>1'], fill=PatternFill("solid", fgColor="ED7D31"),
+                font=Font(name=F, size=11, bold=True, color="FFFFFF"), stopIfTrue=True))
 ws.conditional_formatting.add(
     chk_ranges,
     FormulaRule(formula=[f'D{DATA0}<>""'], fill=PatternFill("solid", fgColor=CHECK),
@@ -477,11 +476,11 @@ for route, colr, white in ROUTES:
 for k, (lab, y, m) in enumerate(MOIS):
     t0 = blk_title(k)
     ws.conditional_formatting.add(
-        f"B{t0}:M{t0}",
+        f"B{t0}:L{t0}",
         FormulaRule(formula=[f'$C$4="{lab}"'], fill=PatternFill("solid", fgColor=ACTIVE),
                     font=Font(name=F, size=11, bold=True, color="FFFFFF"), stopIfTrue=True))
 
-widths = {"A": 2, "B": 26, "C": 16, "K": 14, "L": 16, "M": 16, "N": 26, "V": 10,
+widths = {"A": 2, "B": 26, "C": 16, "K": 16, "L": 16, "M": 3, "N": 26, "V": 3,
           "W": 18, "X": 12, "Y": 10, "Z": 10}
 for j in range(7):
     widths[gl(GRID_C0+j)] = 16
@@ -501,13 +500,13 @@ an.sheet_view.showGridLines = False
 A = lambda *a, **k: C(an, *a, **k)
 S1 = f"'{ws.title}'!"
 R_HYP, R_SYN, R_SIE, R_ROT, R_TYP, R_CAL, R_DET = 5, 12, 28, 45, 62, 78, 93
-mcol = lambda m: gl(3+m)                      # C..N : les 12 mois
-rcol = lambda i: gl(3+i)                      # C..N : les 12 routes
+mcol = lambda m: gl(3+m)
+rcol = lambda i: gl(3+i)
 det_row = lambda i, t: R_DET + 1 + NB_T*i + TYPES.index(t)
 cal_row = lambda m: R_CAL + 1 + m
 occ_row = lambda m: f"$C${cal_row(m)}:$I${cal_row(m)}"
 seat = {t: f"$C${R_HYP+1+ti}" for ti, t in enumerate(TYPES)}
-LEGS = f"$C${R_HYP+4}"                        # 1 = sieges comptes une fois par rotation A/R
+LEGS = f"$C${R_HYP+4}"
 
 an.merge_cells("B1:J1")
 A("B1", "ANALYSE DE CAPACITE - SIEGES OFFERTS (avril 2027 / mars 2028)",
@@ -515,8 +514,8 @@ A("B1", "ANALYSE DE CAPACITE - SIEGES OFFERTS (avril 2027 / mars 2028)",
 an.row_dimensions[1].height = 30
 an.merge_cells("B2:J2")
 A("B2", "Cette feuille interprete automatiquement la feuille \"Programme de vols\" (les 12 tableaux mensuels et les vols "
-        "additionnels) en la croisant avec les capacites ci-dessous. Une rotation = un aller-retour, comptee le jour de son aller. Aucune saisie ici, hormis les capacites. "
-        "Toute modification du programme met a jour cette feuille.",
+        "additionnels) en la croisant avec les capacites ci-dessous. Une rotation = un aller-retour, comptee le jour de son "
+        "depart. Aucune saisie ici, hormis les hypotheses. Toute modification du programme met a jour cette feuille.",
   size=9, italic=True, halign="left", wrap=True, color="404040")
 an.row_dimensions[2].height = 26
 
@@ -529,8 +528,7 @@ for ti, t in enumerate(TYPES):
     A(f"B{r}", t, bold=True, size=10, border=box)
     A(f"C{r}", SIEGES[t], bold=True, size=10, color=BLUE_IN, fill="FFF2CC", fmt="#,##0", border=box)
     A(f"D{r}", SIEGES_NOTE[t], size=8, italic=True, color="595959", halign="left", border=box)
-for k in range(1, 4):
-    an.merge_cells(f"D{R_HYP+k}:F{R_HYP+k}")
+    an.merge_cells(f"D{r}:F{r}")
 rl = R_HYP + 4
 A(f"B{rl}", "Legs comptes par rotation", bold=True, size=10, border=box)
 A(f"C{rl}", 1, bold=True, size=10, color=BLUE_IN, fill="FFF2CC", fmt="0", border=box)
@@ -538,7 +536,6 @@ an.merge_cells(f"D{rl}:F{rl}")
 A(f"D{rl}", "1 = l'aller-retour compte pour un vol (sieges offerts d'un sens) ; mettre 2 pour compter l'aller ET le retour.",
   size=8, italic=True, color="595959", halign="left", border=box)
 
-# --- synthese annuelle par route
 an.merge_cells(f"B{R_SYN-1}:F{R_SYN-1}")
 A(f"B{R_SYN-1}", "SYNTHESE ANNUELLE PAR ROUTE", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
 for i, h in enumerate(["Route", "Rotations sur l'annee", "Sieges offerts sur l'annee", "Sieges / rotation",
@@ -548,20 +545,18 @@ an.row_dimensions[R_SYN].height = 30
 for i, (route, colr, white) in enumerate(ROUTES):
     r = R_SYN + 1 + i
     col = rcol(i)
-    A(f"B{r}", route, bold=True, size=10,
-      fill=colr, color="FFFFFF" if white else "000000", border=box)
+    A(f"B{r}", route, bold=True, size=10, fill=colr, color="FFFFFF" if white else "000000", border=box)
     A(f"C{r}", f"=SUM({col}${R_ROT+1}:{col}${R_ROT+len(MOIS)})", size=10, fmt="#,##0", border=box)
     A(f"D{r}", f"=SUM({col}${R_SIE+1}:{col}${R_SIE+len(MOIS)})", bold=True, size=10, fmt="#,##0", border=box)
     A(f"E{r}", f'=IFERROR(D{r}/C{r},"-")', size=10, fmt="#,##0", border=box)
     A(f"F{r}", f"=IFERROR(D{r}/$D${R_SYN+len(ROUTES)+1},0)", size=10, fmt="0.0%", border=box)
-rt = R_SYN + len(ROUTES) + 1
-A(f"B{rt}", "TOTAL RESEAU", bold=True, size=10, color="FFFFFF", fill=NAVY, halign="left", border=box)
+rt2 = R_SYN + len(ROUTES) + 1
+A(f"B{rt2}", "TOTAL RESEAU", bold=True, size=10, color="FFFFFF", fill=NAVY, halign="left", border=box)
 for c in ("C", "D"):
-    A(f"{c}{rt}", f"=SUM({c}{R_SYN+1}:{c}{rt-1})", bold=True, size=11, color="FFFFFF", fill=NAVY, fmt="#,##0", border=box)
-A(f"E{rt}", f'=IFERROR(D{rt}/C{rt},"-")', bold=True, size=10, color="FFFFFF", fill=NAVY, fmt="#,##0", border=box)
-A(f"F{rt}", f"=IFERROR(D{rt}/$D${rt},0)", bold=True, size=10, color="FFFFFF", fill=NAVY, fmt="0.0%", border=box)
+    A(f"{c}{rt2}", f"=SUM({c}{R_SYN+1}:{c}{rt2-1})", bold=True, size=11, color="FFFFFF", fill=NAVY, fmt="#,##0", border=box)
+A(f"E{rt2}", f'=IFERROR(D{rt2}/C{rt2},"-")', bold=True, size=10, color="FFFFFF", fill=NAVY, fmt="#,##0", border=box)
+A(f"F{rt2}", f"=IFERROR(D{rt2}/$D${rt2},0)", bold=True, size=10, color="FFFFFF", fill=NAVY, fmt="0.0%", border=box)
 
-# --- tableaux mois x routes
 for base, titre, fmt in ((R_SIE, "SIEGES OFFERTS PAR MOIS ET PAR ROUTE", "#,##0"),
                          (R_ROT, "ROTATIONS PAR MOIS ET PAR ROUTE", "#,##0")):
     an.merge_cells(f"B{base-1}:O{base-1}")
@@ -588,7 +583,6 @@ for base, titre, fmt in ((R_SIE, "SIEGES OFFERTS PAR MOIS ET PAR ROUTE", "#,##0"
         A(f"{c}{r}", f"=SUM({c}{base+1}:{c}{base+len(MOIS)})", bold=True, size=9,
           color="FFFFFF", fill=NAVY, fmt=fmt, border=box)
 
-# --- par type avion et par mois
 an.merge_cells(f"B{R_TYP-1}:K{R_TYP-1}")
 A(f"B{R_TYP-1}", "ROTATIONS ET SIEGES PAR TYPE AVION ET PAR MOIS", bold=True, size=11, color="FFFFFF", fill=NAVY, halign="left")
 hdr = ["Mois"] + [f"Rotations {t}" for t in TYPES] + ["Total rotations"] + [f"Sieges {t}" for t in TYPES] + \
@@ -616,7 +610,6 @@ for i in range(2, 10):
     A(f"{c}{r}", f"=SUM({c}{R_TYP+1}:{c}{r-1})", bold=True, size=9, color="FFFFFF", fill=NAVY, fmt="#,##0", border=box)
 A(f"K{r}", f'=IFERROR(J{r}/F{r},"-")', bold=True, size=9, color="FFFFFF", fill=NAVY, fmt="#,##0", border=box)
 
-# --- calendrier auto
 an.merge_cells(f"B{R_CAL-1}:L{R_CAL-1}")
 A(f"B{R_CAL-1}", "CALENDRIER AUTO : occurrences de chaque jour de semaine dans le mois (semaines partielles incluses)",
   bold=True, size=9, color="FFFFFF", fill="808080", halign="left")
@@ -632,7 +625,6 @@ for m, (lab, y, mm) in enumerate(MOIS):
         off = f"MOD({j+1}-WEEKDAY($J{r},2),7)"
         A(f"{gl(3+j)}{r}", f"=IF({off}>=$L{r},0,INT(($L{r}-1-{off})/7)+1)", size=8, fmt="0", border=box)
 
-# --- detail auto : rotations par route, type et mois
 an.merge_cells(f"B{R_DET-1}:N{R_DET-1}")
 A(f"B{R_DET-1}", "DETAIL AUTO : rotations par route, type avion et mois (programme du mois + vols additionnels)",
   bold=True, size=9, color="FFFFFF", fill="808080", halign="left")
@@ -653,7 +645,7 @@ for i, (route, colr, white) in enumerate(ROUTES):
             rel = m*STEP + NB_T*i + ti + 1
             cal = cal_row(m)
             A(f"{mcol(m)}{r}",
-              f'=SUMPRODUCT({occ_row(m)},--(INDEX({S1}{BIG},{rel},0)<>""))'
+              f'=SUMPRODUCT({occ_row(m)},LEN(INDEX({S1}{BIG},{rel},0)))'
               f'+SUMIFS({ADD_N2},{ADD_R2},"{route}",{ADD_T2},"{t}",'
               f'{ADD_D2},">="&$J${cal},{ADD_D2},"<="&$K${cal})',
               size=8, fmt="0", border=box)
