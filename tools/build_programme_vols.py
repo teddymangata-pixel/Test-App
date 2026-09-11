@@ -116,6 +116,7 @@ thin = Side(style="thin", color="A6A6A6")
 med = Side(style="medium", color="404040")
 box = Border(left=thin, right=thin, top=thin, bottom=thin)
 NAVY, LIGHT, GREY, BROWN, RED, ACTIVE, CHECK = "1F3864", "D9E2F3", "F2F2F2", "833C0C", "C00000", "375623", "70AD47"
+GREEN = "00B050"      # bordure des ajouts
 BLUE_IN = "0000FF"
 
 BIG = f"$D${DATA0}:$J${DATA_LAST}"                              # les 12 tableaux (7 jours)
@@ -366,8 +367,8 @@ cell(f"C{ROW_NBW}", "=" + "+".join(f'IF(COUNT({gl(GRID_C0)}{r}:{gl(GRID_C0+6)}{r
      bold=True, size=10, fill="E7E6E6", border=box)
 ws.merge_cells(f"D{ROW_NBW}:I{ROW_NBW}")
 cell(f"D{ROW_NBW}", 'Lecture : 1re ligne = les rotations qui PARTENT ce jour-la ("2xA320" = deux rotations A320)  |  2e ligne '
-                    '"< 787" = les RETOURS du jour  |  "(+787)" ou "(-787)" encadre en rouge = ajout ou retrait saisi sur la '
-                    'feuille Vols additionnels.',
+                    '"< 787" = les RETOURS du jour  |  cellule encadree en VERT = vol AJOUTE "(+787)", encadree en ROUGE = vol '
+                    'RETIRE "(-787)", saisis sur la feuille Vols additionnels.',
      size=8, italic=True, color="595959", halign="left")
 
 # --- recapitulatif
@@ -430,12 +431,15 @@ add_dv(ws, DataValidation(type="list", formula1=f"=${rc(3)}${REF0}:${rc(3)}${REF
 
 grid_ranges = " ".join(f"{gl(GRID_C0)}{r}:{gl(GRID_C0+6)}{r}" for r in type_rows)
 c0 = gl(GRID_C0)
-ws.conditional_formatting.add(
-    grid_ranges,
-    FormulaRule(formula=[f'ISNUMBER(SEARCH("(",{c0}{ROW_W1}))'],
-                border=Border(left=Side(style="medium", color=RED), right=Side(style="medium", color=RED),
-                              top=Side(style="medium", color=RED), bottom=Side(style="medium", color=RED)),
-                stopIfTrue=False))
+def frame(color):
+    s_ = Side(style="medium", color=color)
+    return Border(left=s_, right=s_, top=s_, bottom=s_)
+# un retrait prime sur un ajout quand la cellule porte les deux
+for motif, couleur in (("(-", RED), ("(+", GREEN)):
+    ws.conditional_formatting.add(
+        grid_ranges,
+        FormulaRule(formula=[f'ISNUMBER(SEARCH("{motif}",{c0}{ROW_W1}))'],
+                    border=frame(couleur), stopIfTrue=False))
 for route, colr, white in ROUTES:
     fc = "FFFFFF" if white else "000000"
     ws.conditional_formatting.add(
@@ -610,7 +614,10 @@ add_dv(va, DataValidation(type="date", operator="between", formula1="DATE(2027,3
        f"B{ROW_ADD0}:B{ROW_ADD_END}")
 va.conditional_formatting.add(
     f"B{ROW_ADD0}:G{ROW_ADD_END}",
-    FormulaRule(formula=[f"$E{ROW_ADD0}<0"], fill=PatternFill("solid", fgColor="FCE4E4"), stopIfTrue=False))
+    FormulaRule(formula=[f"$E{ROW_ADD0}<0"], fill=PatternFill("solid", fgColor="FCE4E4"), stopIfTrue=True))
+va.conditional_formatting.add(
+    f"B{ROW_ADD0}:G{ROW_ADD_END}",
+    FormulaRule(formula=[f"$E{ROW_ADD0}>0"], fill=PatternFill("solid", fgColor="E2EFDA"), stopIfTrue=True))
 for col, w in {"A": 2, "B": 18, "C": 14, "D": 14, "E": 16, "F": 12, "G": 52, "H": 3,
                "I": 16, "J": 18, "K": 16, "L": 18, "M": 3, "N": 12, "O": 10}.items():
     va.column_dimensions[col].width = w

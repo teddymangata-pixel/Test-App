@@ -73,7 +73,9 @@ Une ligne = un écart ponctuel au programme :
 | Commentaire | libre |
 
 - Un **retrait** (`-1`) se soustrait du programme de ce jour-là ; la ligne est surlignée en rose et
-  la grille affiche `(-A320)`.
+  la grille encadre la cellule en **rouge** avec `(-A320)`. Un **ajout** surligne la ligne en vert
+  clair et encadre la cellule de la grille en **vert** avec `(+A320)`. Si une même cellule porte un
+  ajout et un retrait, la bordure rouge l'emporte.
 - La plage de dates commence avant le 1ᵉʳ avril **exprès** : un vol parti le **31/03/2027** avec
   `Retour J+1` rentre le 01/04 → il apporte **0,5 rotation à avril** (son arrivée), son départ
   tombant hors de l'année. La grille affiche `< (+787)` le 1ᵉʳ avril.
@@ -88,7 +90,8 @@ Une ligne = un écart ponctuel au programme :
 |---|---|
 | `77W/787/2xA320` (1ʳᵉ ligne) | les rotations qui **partent** ce jour-là |
 | `< 77W/A320` (2ᵉ ligne) | les **retours** du jour |
-| `(+787)` / `(-A320)` — bordure rouge | ajout ou retrait saisi sur « Vols additionnels » |
+| `(+787)` — **bordure verte** | vol **ajouté** sur « Vols additionnels » |
+| `(-A320)` — **bordure rouge** | vol **retiré** (régulation) sur « Vols additionnels » |
 
 ### Repères (colonnes N/O)
 
