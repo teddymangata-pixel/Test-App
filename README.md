@@ -1,6 +1,6 @@
 # Programme de vols mensuel automatisé (Excel)
 
-`Programme_vols_mensuel_2027-2028.xlsx` — **quatre feuilles**, année d'exploitation
+`Programme_vols_mensuel_2027-2028.xlsx` — **cinq feuilles**, année d'exploitation
 **avril 2027 → mars 2028**, types avion **77W / 787 / A320**.
 
 | Feuille | Rôle |
@@ -8,7 +8,8 @@
 | **Programme de vols** | lecture : filtres Mois + Route, grille mensuelle, récapitulatif |
 | **Saisie programme** | les 12 tableaux mensuels — le programme régulier |
 | **Vols additionnels** | les écarts datés : **ajouts (+) et retraits (−)**. Livrée vide |
-| **Analyse capacite** | sièges offerts. Seule saisie : les hypothèses |
+| **Analyse capacite** | sièges offerts, avec filtre de cabine. Seule saisie : les hypothèses |
+| **Base de donnees** | table à plat, une ligne par date × route × type — source pour TCD |
 
 ## La règle de comptage
 
@@ -129,6 +130,30 @@ Contenu : synthèse annuelle par route · sièges offerts par mois et par route 
 par route · rotations et sièges par type avion et par mois · trois blocs automatiques (départs du
 programme, queues de mois, rotations) et le calendrier des occurrences.
 
+## Feuille « Base de donnees »
+
+Table à plat entièrement calculée, prête pour un tableau croisé dynamique : **une ligne par jour de
+l'année d'exploitation, par route et par type avion** (366 × 12 × 3 = 13 176 lignes, lignes 5 à
+13 180).
+
+| Colonne | Contenu |
+|---|---|
+| Annee · Mois · Date de vol | `2027` · `avril` · `01/04/2027` |
+| Route · Type avion | les 12 routes × les 3 types |
+| **Nb de vol** | rotations qui **partent** ce jour-là, ajouts et retraits compris |
+| **Offre** · **Offre C** · **Offre W** · **Offre Y** | Nb de vol × capacité du type, par cabine |
+
+Les lignes portant au moins un vol sont surlignées en vert, et le filtre de l'en-tête permet de
+n'afficher que celles-là (2 330 lignes sur 13 176 avec les données livrées). `Offre` = `Offre C` +
+`Offre W` + `Offre Y`, vérifié sur toutes les lignes. Les capacités viennent de « Analyse capacite »
+et ne dépendent pas du filtre de cabine de cette feuille.
+
+> **Départs ≠ rotations.** La somme de `Nb de vol` sur un mois donne les **départs** du mois (colonne
+> « Départs du mois » du récapitulatif), pas les rotations qui valent (départs + arrivées) / 2. Une
+> rotation partie le 30 avril et rentrée le 1ᵉʳ mai compte **1 départ en avril** dans cette table,
+> mais **0,5 rotation** en avril et 0,5 en mai dans le récapitulatif et l'analyse de capacité.
+> Avril 2027 : 198 départs pour 196,5 rotations.
+
 ## Règles de calcul
 
 - Le tableau lu = celui du mois filtré (`INDEX` sur la zone des 12 tableaux, décalage de 39 lignes
@@ -159,6 +184,9 @@ feuilles.
 
 Par cabine, sur l'année : **C 15 655** · **W 34 292** · **Y 530 792** sièges — dont la somme
 redonne bien les 580 739 sièges toutes cabines.
+
+Côté base de données (grain départ) : **2 430 départs** et **581 220 sièges offerts** sur l'année,
+dont 198 départs et 47 300 sièges en avril 2027.
 
 Écarts testés : un vol `31/03/2027 · CDGRUN · 787 · +1 · Retour J+1` porte CDGRUN à **46,5**
 rotations en avril (arrivées 45 → 46) ; un retrait `19/04/2027 · NOSRUN · A320 · −1` ramène NOSRUN

@@ -831,5 +831,68 @@ an.page_setup.fitToWidth = 1
 an.sheet_properties.pageSetUpPr.fitToPage = True
 an.print_area = f"B1:O{R_TYP+len(MOIS)+1}"
 
+# ================================================================= FEUILLE 5 : BASE DE DONNEES
+bd = wb.create_sheet("Base de donnees")
+bd.sheet_view.showGridLines = False
+BD = lambda *a, **k: C(bd, *a, **k)
+S4R = f"'{S4N}'!"
+MOIS_FR = ["janvier", "fevrier", "mars", "avril", "mai", "juin",
+           "juillet", "aout", "septembre", "octobre", "novembre", "decembre"]
+BD_HDR = 4
+bd.merge_cells("B1:K1")
+BD("B1", "BASE DE DONNEES - UNE LIGNE PAR DATE, ROUTE ET TYPE AVION",
+   bold=True, size=16, color="FFFFFF", fill=NAVY, halign="left")
+bd.row_dimensions[1].height = 30
+bd.merge_cells("B2:K2")
+BD("B2", "Table a plat, entierement calculee : une ligne par jour de l'annee d'exploitation, par route et par type avion "
+         "(366 x 12 x 3 lignes). \"Nb de vol\" = nombre de rotations qui PARTENT ce jour-la, vols additionnels et retraits "
+         "compris ; il vaut 0 quand la route n'opere pas ce jour-la (filtrer sur > 0 pour ne voir que les vols). L'offre est le "
+         "nombre de vols multiplie par la capacite du type avion, reprise de la feuille \"Analyse capacite\" - elle ne depend "
+         "pas du filtre de cabine de cette feuille, les trois cabines etant donnees en colonnes. Aucune saisie ici : cette "
+         "feuille se met a jour avec le programme et sert de source aux tableaux croises dynamiques.",
+   size=9, italic=True, halign="left", wrap=True, color="404040")
+bd.row_dimensions[2].height = 66
+for i, h in enumerate(["Annee", "Mois", "Date de vol", "Route", "Type avion", "Nb de vol",
+                       "Offre", "Offre C", "Offre W", "Offre Y"]):
+    BD(f"{gl(2+i)}{BD_HDR}", h, bold=True, size=9, color="FFFFFF", fill="2F5597", wrap=True, border=box)
+bd.row_dimensions[BD_HDR].height = 26
+thin_g = Side(style="thin", color="D9D9D9")
+light_box = Border(left=thin_g, right=thin_g, top=thin_g, bottom=thin_g)
+d0, d1 = datetime.date(2027, 4, 1), datetime.date(2028, 3, 31)
+r = BD_HDR + 1
+d = d0
+while d <= d1:
+    m_idx = (d.year - 2027) * 12 + d.month - 4          # 0..11 : tableau mensuel concerne
+    j = d.isoweekday() - 1                              # 0..6 : J1..J7
+    for i, (route, colr, white) in enumerate(ROUTES):
+        for ti, t in enumerate(TYPES):
+            src = f"{S2R}${gl(SAI_C0+j)}${blk_title(m_idx) + 2 + NB_T*i + ti}"
+            cap = 7 + ti                                 # ligne du type dans les hypotheses de capacite
+            BD(f"B{r}", d.year, size=9, fmt="0", border=light_box)
+            BD(f"C{r}", MOIS_FR[d.month-1], size=9, halign="left", border=light_box)
+            BD(f"D{r}", d, size=9, fmt="DD/MM/YYYY", border=light_box)
+            BD(f"E{r}", route, size=9, halign="left", border=light_box)
+            BD(f"F{r}", t, size=9, border=light_box)
+            BD(f"G{r}", f'=LEN({src})+SUMIFS({ADD_N},{ADD_R},$E{r},{ADD_T},$F{r},{ADD_D},$D{r})',
+               bold=True, size=9, fmt="0", border=light_box)
+            for ci, col in enumerate(("H", "I", "J", "K")):
+                ref = f"{S4R}${'FCDE'[ci]}${cap}"        # F = total, C/D/E = cabines C/W/Y
+                BD(f"{col}{r}", f"=$G{r}*{ref}", size=9, fmt="#,##0", border=light_box)
+            r += 1
+    d += datetime.timedelta(days=1)
+BD_END = r - 1
+bd.auto_filter.ref = f"B{BD_HDR}:K{BD_END}"
+bd.freeze_panes = f"B{BD_HDR+1}"
+bd.conditional_formatting.add(
+    f"B{BD_HDR+1}:K{BD_END}",
+    FormulaRule(formula=[f"$G{BD_HDR+1}>0"], fill=PatternFill("solid", fgColor="E2EFDA"), stopIfTrue=True))
+for col, w in {"A": 2, "B": 10, "C": 14, "D": 14, "E": 12, "F": 12, "G": 12,
+               "H": 12, "I": 12, "J": 12, "K": 12}.items():
+    bd.column_dimensions[col].width = w
+bd.page_setup.orientation = "landscape"
+bd.page_setup.fitToWidth = 1
+bd.sheet_properties.pageSetUpPr.fitToPage = True
+
 wb.save(OUT)
+print(f"  Base de donnees : lignes {BD_HDR+1}-{BD_END}")
 print(f"ecrit -> {OUT}\n  Saisie {BLK0}-{DATA_LAST} | Vols add. {ROW_ADD0}-{ROW_ADD_END}")
